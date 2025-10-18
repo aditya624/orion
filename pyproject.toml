@@ -1,0 +1,34 @@
+[project]
+name = "orion"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "aditya624",email = "adityaadit677@gmail.com"}
+]
+readme = "README.md"
+packages = [{include = "orion"}]
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "langchain (>=0.3.27,<0.4.0)",
+    "fastapi (>=0.119.0,<0.120.0)",
+    "uvicorn (>=0.37.0,<0.38.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "langfuse (>=3.7.0,<4.0.0)",
+    "langchain-huggingface (==0.3.1)",
+    "langchain-qdrant (==0.2.1)",
+    "langchain-groq (==0.3.8)",
+    "langchain-community (>=0.3.31,<0.4.0)",
+    "langchain-mongodb (>=0.7.1,<0.8.0)",
+    "pytz (>=2025.2,<2026.0)",
+    "langgraph (>=1.0.0,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orion"]
+namespaces = false

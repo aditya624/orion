@@ -1,0 +1,87 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pdb
+*.so
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+
+# --- Virtual Environment ---
+.venv/
+venv/
+ENV/
+env/
+.env/
+*.env
+
+# --- Poetry ---
+poetry.lock
+.cache/
+.poetry/
+
+# --- IDE & Editor ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+.DS_Store
+
+# --- Logs & Temp ---
+*.log
+logs/
+*.tmp
+tmp/
+.cache/
+__logs__/
+
+# --- OS Files ---
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# --- Coverage & Test ---
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+coverage.xml
+test-results/
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- Docker ---
+*.pid
+*.seed
+docker-compose.override.yml
+
+# --- Data ---
+data/
+datasets/
+*.csv
+*.jsonl
+*.db
+*.sqlite3
+
+# --- Application Specific ---
+app/__pycache__/
+app/**/*.pyc
+
+# --- Credentials / Keys ---
+*.pem
+*.key
+*.crt
+*.p12
+*.json
+secrets/
+
+test.py
