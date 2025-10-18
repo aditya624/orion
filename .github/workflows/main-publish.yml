@@ -2,13 +2,10 @@ name: Publish Docker (main)
 
 on:
   push:
+    branches: [ main ]                 # merge commit ke main pasti memicu ini
+  pull_request:
+    types: [closed]                    # jaga-jaga kalau push tidak terbaca
     branches: [ main ]
-    paths:
-      - 'Dockerfile'
-      - '**/*.py'
-      - 'pyproject.toml'
-      - 'requirements*.txt'
-      - '.github/workflows/**'
   workflow_dispatch: {}
 
 permissions:
@@ -24,7 +21,14 @@ concurrency:
 
 jobs:
   build-and-push:
+    # jalan kalau:
+    # 1) event push ke main, ATAU
+    # 2) event PR closed ke main DAN PR-nya merged
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
