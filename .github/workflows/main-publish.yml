@@ -1,0 +1,69 @@
+name: Publish Docker (main)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Dockerfile'
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/orion
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Read version from pyproject.toml
+        id: get_version
+        shell: bash
+        run: |
+          python - <<'PY' > /tmp/out.txt
+          import sys, pathlib
+          try:
+            import tomllib
+          except ModuleNotFoundError:
+            sys.exit("Python 3.11+ required for tomllib")
+          data = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
+          v = (data.get("project") or {}).get("version") \
+              or ((data.get("tool") or {}).get("poetry") or {}).get("version")
+          if not v: sys.exit("Version not found in pyproject.toml")
+          print(f"version={v}")
+          PY
+          cat /tmp/out.txt >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            docker.io/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}
+            docker.io/${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.version=${{ steps.get_version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
