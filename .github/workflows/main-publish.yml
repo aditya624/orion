@@ -1,17 +1,26 @@
-name: Release CI → Auto-merge to main
+name: Publish Docker (main)
 
 on:
   push:
-    branches: [ release ]
+    branches: [ main ]
+    paths:
+      - 'Dockerfile'
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/**'
   workflow_dispatch: {}
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
   packages: write
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/orion
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-push:
@@ -19,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Read version from pyproject.toml
         id: get_version
@@ -53,35 +63,7 @@ jobs:
           tags: |
             docker.io/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}
             docker.io/${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.version=${{ steps.get_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  open-pr-and-automerge:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create or find PR release → main
-        id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          number=$(gh pr list --base main --head release --state open --json number --jq '.[0].number')
-          if [ -z "$number" ]; then
-            gh pr create --base main --head release \
-              --title "Release → main" \
-              --body "Auto PR dari branch **release** ke **main** setelah CI lulus."
-            number=$(gh pr list --base main --head release --state open --json number --jq '.[0].number')
-          fi
-          echo "PR_NUMBER=$number" >> "$GITHUB_ENV"
-
-      - name: Enable auto-merge
-        if: env.PR_NUMBER != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge "$PR_NUMBER" --merge --auto
