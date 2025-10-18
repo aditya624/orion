@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from orion.agent.agent import Agent
+from orion.logging import logger
 
 router = APIRouter(prefix="/v1/agent", tags=["agent"])
 
@@ -33,6 +34,7 @@ async def generate_response(req: Request, payload: GenerateRequest):
         answer = _agent.generate(input=payload.input, session_id=payload.session_id)
 
         latency_ms = int((time.perf_counter() - start) * 1000)
+        logger.info("Agent success", extra={"request_id": request_id})
 
         return GenerateResponse(
             answer=answer,
@@ -41,5 +43,5 @@ async def generate_response(req: Request, payload: GenerateRequest):
         )
     except Exception as e:
         latency_ms = int((time.perf_counter() - start) * 1000)
-        # Transparan namun aman
+        logger.error("Agent failed", extra={"request_id": request_id})
         raise HTTPException(status_code=500, detail={"message": "Agent failed", "error": str(e), "request_id": request_id})

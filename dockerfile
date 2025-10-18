@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_NO_CACHE_DIR=on
+
+WORKDIR /app
+
+COPY . .
+
+RUN python -m pip install --upgrade pip \
+ && pip install --no-cache-dir .
+
+# environment default
+ENV APP_MODULE=orion.main:app \
+    HOST=0.0.0.0 \
+    PORT=8000
+
+EXPOSE 8000
+
+ENTRYPOINT ["uvicorn"]
+
+CMD ["${APP_MODULE}", "--host", "${HOST}", "--port", "${PORT}"]

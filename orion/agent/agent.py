@@ -21,14 +21,6 @@ class Agent(object):
             api_key=settings.groq.api_key
         )
 
-        self.memory = MongoDBChatMessageHistory(
-            session_id="default", 
-            connection_string=settings.mongodb.uri,
-            database_name=settings.mongodb.database,
-            collection_name=settings.mongodb.collection,
-            history_key="history"
-        )
-        
         self.langfuse = Langfuse()
 
         self.prompt = load_prompt(settings, self.langfuse)
@@ -56,13 +48,17 @@ class Agent(object):
 
         return bindtools
 
-    def get_memory(self, session_id):
+    def get_memory(self, session_id, history_size):
+
+        if history_size == -1:
+            history_size = settings.mongodb.history_size
+
         return MongoDBChatMessageHistory(
             session_id=session_id, 
             connection_string=settings.mongodb.uri,
             database_name=settings.mongodb.database,
             collection_name=settings.mongodb.collection,
-            history_size=settings.mongodb.history_size
+            history_size=history_size
         )
 
     def graph_builder(self):
@@ -73,7 +69,7 @@ class Agent(object):
 
             system_prompt = self.prompt["agent"]["prompt"].format(current_date=current_date)
 
-            memory = self.get_memory(session_id=state["session_id"])
+            memory = self.get_memory(session_id=state["session_id"], history_size=-1)
 
             system_prompt = SystemMessage(content=system_prompt)
             inputs = [system_prompt] + memory.messages + messages
@@ -115,7 +111,7 @@ class Agent(object):
             },
         )["messages"][-1].content
 
-        memory = self.get_memory(session_id=session_id)
+        memory = self.get_memory(session_id=session_id, history_size=-1)
         memory.add_user_message(input)
         memory.add_ai_message(answer)
         return answer
