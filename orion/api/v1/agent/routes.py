@@ -1,0 +1,45 @@
+import time
+import uuid
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
+from orion.agent.agent import Agent
+
+router = APIRouter(prefix="/v1/agent", tags=["agent"])
+
+_agent = Agent()
+
+class GenerateRequest(BaseModel):
+    input: str = Field(..., description="Question")
+    session_id: str = Field("halo", description="Session ID")
+
+class GenerateResponse(BaseModel):
+    answer: str
+    session_id: str
+    latency_ms: int
+
+@router.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "orion-agent", "version": "v1"}
+
+@router.post("/generate", response_model=GenerateResponse)
+async def generate_response(req: Request, payload: GenerateRequest):
+    """
+    Hasilkan jawaban dari Orion Agent (v1).
+    """
+    request_id = str(uuid.uuid4())
+    start = time.perf_counter()
+
+    try:
+        answer = _agent.generate(input=payload.input, session_id=payload.session_id)
+
+        latency_ms = int((time.perf_counter() - start) * 1000)
+
+        return GenerateResponse(
+            answer=answer,
+            session_id=payload.session_id,
+            latency_ms=latency_ms,
+        )
+    except Exception as e:
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        # Transparan namun aman
+        raise HTTPException(status_code=500, detail={"message": "Agent failed", "error": str(e), "request_id": request_id})

@@ -25,12 +25,20 @@ class QdrantConfig(BaseModel):
     url: str = os.getenv("QDRANT_URL", "")
     api_key: str = os.getenv("QDRANT_API_KEY", "")
     collection: str = os.getenv("QDRANT_COLLECTION", "")
+    top_k: int = int(os.getenv("QDRANT_TOP_K", "6"))
+    chunk_size: int = int(os.getenv("QDRANT_CHUNK_SIZE", "1000"))
+    chunk_overlap: int = int(os.getenv("QDRANT_CHUNK_OVERLAP", "100"))
 
 class LangfuseConfig(BaseModel):
     system_prompt_name: str = os.getenv("LANGFUSE_SYSTEM_PROMPT_NAME", "agent")
     system_prompt_version: str = os.getenv("LANGFUSE_SYSTEM_PROMPT_VERSION", None)
 
+    knowledge_prompt_name: str = os.getenv("LANGFUSE_KNOWLEDGE_PROMPT_NAME", "knowledge")
+    knowledge_prompt_version: str = os.getenv("LANGFUSE_KNOWLEDGE_PROMPT_VERSION", None)
+
 class Settings(BaseModel):
+    app_name: str = os.getenv("APP_NAME", "orion")
+    version: str = os.getenv("VERSION", "0.1.0")
     env: str = os.getenv("SERVICE_ENV", "local")
     request_timeout_s: int = int(os.getenv("REQUEST_TIMEOUT_S", "350"))
     

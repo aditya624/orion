@@ -1,15 +1,10 @@
 from langchain_groq import ChatGroq
 from orion.config import settings
-from orion.agent.helper import load_prompt, get_date_and_time, State
+from orion.agent.helper import load_prompt, get_date_and_time, State, get_args_schema
+from orion.tools.knowledge import Knowledge
 
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents.format_scratchpad.tools import (
-    format_to_tool_messages,
-)
-from langchain.agents import AgentExecutor
-from langchain.agents.output_parsers.tools import ToolsAgentOutputParser
 from langchain_mongodb.chat_message_histories import MongoDBChatMessageHistory
-from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain.tools import StructuredTool
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
@@ -33,24 +28,33 @@ class Agent(object):
             collection_name=settings.mongodb.collection,
             history_key="history"
         )
+        
         self.langfuse = Langfuse()
+
         self.prompt = load_prompt(settings, self.langfuse)
+
         self.model = ChatGroq(
             model=self.prompt["agent"]["config"]["model"],
             api_key=settings.groq.api_key
         )
-        self.bindtools, self.tools = self.get_tools()
 
-        # self.agent = self.agent_builder()
+        self.knowledge = Knowledge()
+        self.bindtools = self.get_tools()
+
         self.graph = self.graph_builder()
 
     def get_tools(self):
-        tools = {}
-
+        args_schema = get_args_schema(self.prompt)
         bindtools = [
+            StructuredTool.from_function(
+                func=self.knowledge.query,
+                args_schema=args_schema["knowledge"],
+                name=self.prompt["knowledge"]["config"]["name"],
+                description=self.prompt["knowledge"]["description"]
+            ),
         ]
 
-        return bindtools, tools
+        return bindtools
 
     def get_memory(self, session_id):
         return MongoDBChatMessageHistory(
@@ -71,7 +75,8 @@ class Agent(object):
 
             memory = self.get_memory(session_id=state["session_id"])
 
-            inputs = [SystemMessage(content=system_prompt)] + memory.messages + messages
+            system_prompt = SystemMessage(content=system_prompt)
+            inputs = [system_prompt] + memory.messages + messages
 
             response = llm_with_tools.invoke(
                 inputs,
@@ -98,59 +103,6 @@ class Agent(object):
 
         return graph
 
-    def agent_builder(self):
-        llm_with_tools = self.model.bind_tools(self.bindtools)
-        agent_prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    self.prompt["agent"]["prompt"],
-                ),
-                # MessagesPlaceholder(variable_name="history"),
-                ("user", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ]
-        )
-
-        pipeline = {
-            "input": lambda x: x["input"],
-            "agent_scratchpad": lambda x: format_to_tool_messages(
-                x["intermediate_steps"]
-            ),
-            "current_date": lambda x: get_date_and_time(),
-        }
-
-        # pipeline_with_history = RunnableWithMessageHistory(
-        #     pipeline,
-        #     lambda session_id: MongoDBChatMessageHistory(
-        #         session_id=session_id,
-        #         connection_string=settings.mongodb.uri,
-        #         database_name=settings.mongodb.database,
-        #         collection_name=settings.mongodb.collection,
-        #     ),
-        #     input_messages_key="input",
-        #     history_messages_key="history",
-        # )
-
-        agent = (
-            pipeline
-            | agent_prompt
-            | llm_with_tools
-            | ToolsAgentOutputParser()
-        )
-
-        agent_executor = AgentExecutor(
-            agent=agent,
-            tools=self.bindtools,
-            verbose=False,
-            return_intermediate_steps=True,
-            handle_parsing_errors=True,
-            max_iterations=settings.groq.max_iterations,
-            stream_runnable=False,
-        )
-
-        return agent_executor
-
     def generate(self, input, session_id, extra_callbacks=[]):
         answer = self.graph.invoke(
             {
@@ -166,5 +118,4 @@ class Agent(object):
         memory = self.get_memory(session_id=session_id)
         memory.add_user_message(input)
         memory.add_ai_message(answer)
-
         return answer

@@ -85,3 +85,4 @@ app/**/*.pyc
 secrets/
 
 test.py
+notebook/
