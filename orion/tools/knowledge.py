@@ -35,9 +35,9 @@ class Knowledge(object):
             page_content = doc.page_content
             metadata = doc.metadata
 
-            context += f"Title: {metadata['title']}"
-            context += f"Link: {metadata['source']}"
-            context += f"Chunk of Content: {page_content}"
+            context += f"# Title: {metadata['title']}\n"
+            context += f"## Link: {metadata['source']}\n"
+            context += f"## Chunk of Content:\n{page_content}\n\n"
 
         return context
 
