@@ -26,7 +26,8 @@ jobs:
       bumped: ${{ steps.bump.outputs.bumped }}
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
 
       - name: Skip if last commit already bump
         id: skipcheck
@@ -44,39 +45,20 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
-          import re, pathlib, sys
+          import re, pathlib
           p = pathlib.Path("pyproject.toml")
           text = p.read_text(encoding="utf-8")
-
-          # Cari [project].version atau [tool.poetry].version
-          m = re.search(r'(?m)^(version\s*=\s*")(\d+)\.(\d+)\.(\d+)(")', text)
+          m = re.search(r'(?m)^\s*version\s*=\s*"(\d+)\.(\d+)\.(\d+)"', text)
           if not m:
-              # fallback: cari di block [tool.poetry]
-              m = re.search(r'(?m)^\s*version\s*=\s*"(\d+)\.(\d+)\.(\d+)"', text)
-          if not m:
-              sys.exit("Version not found (expected X.Y.Z)")
-
-          if len(m.groups()) == 5:
-              # [project] style with capture groups
-              major, minor, patch = int(m.group(2)), int(m.group(3)), int(m.group(4))
-              new = f'{major}.{minor}.{patch+1}'
-              new_text = text[:m.start(2)] + str(major) + text[m.start(3)-1:m.start(3)] + str(minor) + text[m.start(4)-1:m.start(4)] + str(patch+1) + text[m.end(4):]
-          else:
-              major, minor, patch = map(int, m.groups())
-              new = f'{major}.{minor}.{patch+1}'
-              new_text = re.sub(r'(?m)^\s*version\s*=\s*"\d+\.\d+\.\d+"', f'version = "{new}"', text, count=1)
-
+              raise SystemExit("Version not found (expected X.Y.Z)")
+          major, minor, patch = map(int, m.groups())
+          new = f"{major}.{minor}.{patch+1}"
+          new_text = re.sub(r'(?m)^\s*version\s*=\s*"\d+\.\d+\.\d+"',
+                            f'version = "{new}"', text, count=1)
           p.write_text(new_text, encoding="utf-8")
-          print(f"::set-output name=new_version::{new}")
+          print(f"new_version={new}")
           PY
-          # GitHub deprecated set-output, gunakan GITHUB_OUTPUT:
-          NEWV=$(python - <<'PY'
-import re, pathlib
-t=pathlib.Path("pyproject.toml").read_text()
-m=re.search(r'(?m)^\s*version\s*=\s*"(\d+\.\d+\.\d+)"', t)
-print(m.group(1) if m else "")
-PY
-)
+          NEWV=$(grep -Eo 'version = "[0-9]+\.[0-9]+\.[0-9]+"' pyproject.toml | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+')
           echo "new_version=$NEWV" >> $GITHUB_OUTPUT
           echo "bumped=true" >> $GITHUB_OUTPUT
 
@@ -91,8 +73,7 @@ PY
 
       - name: Pass through outputs when skipped
         if: steps.skipcheck.outputs.already_bumped == 'true'
-        run: |
-          echo "bumped=false" >> $GITHUB_OUTPUT
+        run: echo "bumped=false" >> $GITHUB_OUTPUT
 
   build-test:
     needs: bump-version
@@ -112,13 +93,32 @@ PY
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Tambah step test bila ada:
-      # - uses: actions/setup-python@v5
-      #   with: { python-version: '3.11' }
-      # - run: |
-      #     pip install -U pip
-      #     pip install . pytest
-      #     pytest -q
-
   open-pr-and-automerge:
-    needs:
+    needs: build-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create or find PR release → main
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          number=$(gh pr list --base main --head release --state open --json number --jq '.[0].number')
+          if [ -z "$number" ]; then
+            gh pr create --base main --head release \
+              --title "Release → main" \
+              --body "Auto PR dari branch **release** ke **main** setelah CI lulus."
+            number=$(gh pr list --base main --head release --state open --json number --jq '.[0].number')
+          fi
+          echo "PR_NUMBER=$number" >> $GITHUB_ENV
+
+      - name: Enable auto-merge
+        if: env.PR_NUMBER != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge "$PR_NUMBER" --merge --auto
