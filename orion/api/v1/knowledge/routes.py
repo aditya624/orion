@@ -34,13 +34,13 @@ async def upload_link(payload: UploadLinksRequest):
 
     try:
         result = _knowledge.upload_link(unique_links) 
-        logger.info("Upload success")
+        logger.info("Upload success", extra={"request_id": request_id})
     except ValueError as ve:
         logger.error("Upload failed", extra={"error": str(ve)})
-        raise HTTPException(status_code=400, detail={"message": "Upload failed", "error": str(ve)})
+        raise HTTPException(status_code=400, detail={"message": "Upload failed", "error": str(ve), "request_id": request_id})
     except Exception as e:
         logger.error("Upload failed", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail={"message": "Unexpected error", "error": str(e)})
+        raise HTTPException(status_code=500, detail={"message": "Unexpected error", "error": str(e), "request_id": request_id})
 
     return UploadLinksResponse(
         exists=result.get("exists", []),

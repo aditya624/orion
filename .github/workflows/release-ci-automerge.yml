@@ -112,7 +112,7 @@ jobs:
           if [ -z "$number" ]; then
             gh pr create --base main --head release \
               --title "Release → main" \
-              --body "Auto PR dari branch **release** ke **main** setelah CI lulus."
+              --body "Auto PR from branch **release** to **main** after CI pass."
             number=$(gh pr list --base main --head release --state open --json number --jq '.[0].number')
           fi
           echo "PR_NUMBER=$number" >> $GITHUB_ENV
