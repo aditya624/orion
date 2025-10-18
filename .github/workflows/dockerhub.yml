@@ -2,16 +2,15 @@ name: Build & Push to Docker Hub
 
 on:
   push:
-    branches: [ main ]                 # sesuaikan
+    branches: [ main ]          # sesuaikan
     paths:
       - 'Dockerfile'
       - '**/*.py'
       - 'pyproject.toml'
       - 'requirements*.txt'
       - '.github/workflows/dockerhub.yml'
-  push:
     tags:
-      - 'v*.*.*'
+      - 'v*.*.*'                # build juga saat git tag v1.2.3
   workflow_dispatch: {}
 
 env:
@@ -68,5 +67,6 @@ jobs:
 
       - name: Post summary
         run: |
-          echo "Pushed tags:" >> $GITHUB_STEP_SUMMARY
+          echo "Image pushed to Docker Hub" >> $GITHUB_STEP_SUMMARY
+          echo "Tags:" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
