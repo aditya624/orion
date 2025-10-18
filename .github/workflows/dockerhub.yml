@@ -1,35 +1,27 @@
-name: Build & Push to Docker Hub
+name: Release CI → Auto-merge to main
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'Dockerfile'
-      - '**/*.py'
-      - 'pyproject.toml'
-      - '.github/workflows/dockerhub.yml'
-    tags:
-      - 'v*.*.*'
+    branches: [ release ]  # jalan setiap ada update ke branch release
   workflow_dispatch: {}
+
+permissions:
+  contents: write          # untuk push/merge
+  pull-requests: write     # untuk create PR & enable auto-merge
+  packages: write          # kalau push Docker image
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/orion
 
-permissions:
-  contents: read
-  packages: read
-
 concurrency:
-  group: dockerhub-${{ github.ref }}
+  group: rel-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
@@ -41,37 +33,24 @@ jobs:
           python - <<'PY' > /tmp/out.txt
           import sys, pathlib
           try:
-              import tomllib  # Python 3.11+
+            import tomllib
           except ModuleNotFoundError:
-              print("Python 3.11+ required for tomllib", file=sys.stderr); sys.exit(1)
+            sys.exit("Python 3.11+ required for tomllib")
           data = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
-          v = (data.get("project") or {}).get("version")
-          if not v:
-              v = ((data.get("tool") or {}).get("poetry") or {}).get("version")
-          if not v:
-              sys.exit("Version not found in pyproject.toml (expected 'project.version' or 'tool.poetry.version').")
+          v = (data.get("project") or {}).get("version") \
+              or ((data.get("tool") or {}).get("poetry") or {}).get("version")
+          if not v: sys.exit("Version not found in pyproject.toml")
           print(f"version={v}")
           PY
           cat /tmp/out.txt >> "$GITHUB_OUTPUT"
-      - name: Show version
-        run: echo "Version from pyproject.toml = ${{ steps.get_version.outputs.version }}"
 
-      - name: Log in to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Optional: tetap pakai metadata-action untuk labels (bukan untuk tags)
-      - name: Extract labels
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: docker.io/${{ env.IMAGE_NAME }}
-          labels: |
-            org.opencontainers.image.version=${{ steps.get_version.outputs.version }}
-
-      - name: Build and Push
+      - name: Build & Push image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -79,12 +58,33 @@ jobs:
           tags: |
             docker.io/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}
             docker.io/${{ env.IMAGE_NAME }}:latest
-          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Post summary
-        run: |
-          echo "✅ Pushed to Docker Hub:" >> $GITHUB_STEP_SUMMARY
-          echo "- ${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- ${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+  open-pr-and-automerge:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update PR release → main
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Release ${{
+            needs.build-and-push.outputs.version || github.sha
+          }} → main"
+          body: |
+            Auto PR dari branch `release` ke `main`.
+            Dibuat oleh workflow setelah CI lulus.
+          base: main
+          head: release
+          branch: auto/release-to-main    # PR branch name (action akan bikin cabang referensi)
+          delete-branch: false            # biarkan `release` tetap ada
+
+      - name: Enable auto-merge (merge commit)
+        if: steps.cpr.outputs.pull-request-number != ''
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: merge
