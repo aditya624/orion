@@ -6,7 +6,6 @@ load_dotenv()
 
 class GroqConfig(BaseModel):
     api_key: str = os.getenv("GROQ_API_KEY", "")
-    model: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
     timeout_s: int = int(os.getenv("GROQ_TIMEOUT_S", "300"))
     max_iterations: int = int(os.getenv("GROQ_MAX_ITERATIONS", "6"))
 
@@ -38,8 +37,9 @@ class LangfuseConfig(BaseModel):
 
 class Settings(BaseModel):
     app_name: str = os.getenv("APP_NAME", "orion")
-    version: str = os.getenv("VERSION", "0.1.0")
+    version: str = os.getenv("VERSION", "0.1.4")
     env: str = os.getenv("SERVICE_ENV", "local")
+    token: str = os.getenv("TOKEN", "kajsdasdkjhsdf")
     request_timeout_s: int = int(os.getenv("REQUEST_TIMEOUT_S", "350"))
     
     groq: GroqConfig = GroqConfig()

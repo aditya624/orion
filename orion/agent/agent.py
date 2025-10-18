@@ -16,15 +16,9 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 class Agent(object):
     def __init__(self):
-        self.model = ChatGroq(
-            model=settings.groq.model,
-            api_key=settings.groq.api_key
-        )
-
         self.langfuse = Langfuse()
-
         self.prompt = load_prompt(settings, self.langfuse)
-
+        
         self.model = ChatGroq(
             model=self.prompt["agent"]["config"]["model"],
             api_key=settings.groq.api_key

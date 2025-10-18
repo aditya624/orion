@@ -24,9 +24,6 @@ async def health_check():
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_response(req: Request, payload: GenerateRequest):
-    """
-    Hasilkan jawaban dari Orion Agent (v1).
-    """
     request_id = str(uuid.uuid4())
     start = time.perf_counter()
 
