@@ -19,6 +19,4 @@ ENV APP_MODULE=orion.main:app \
 
 EXPOSE 8000
 
-ENTRYPOINT ["uvicorn"]
-
-CMD ["${APP_MODULE}", "--host", "${HOST}", "--port", "${PORT}"]
+ENTRYPOINT ["/bin/sh", "-c", "uvicorn ${APP_MODULE} --host ${HOST} --port ${PORT:-8080}"]
