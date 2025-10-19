@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from pymongo.collection import Collection
-from pymongo import MongoClient
+from pymongo import ASCENDING, DESCENDING, MongoClient
 
 from orion.config import settings
 
@@ -52,15 +52,31 @@ class HistoryStore:
         user_id: str,
         session_id: str,
         order: str = "DESC",
+        offset: int = 0,
+        limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         if order not in {"ASC", "DESC"}:
             raise ValueError("order must be either 'ASC' or 'DESC'")
+        if offset < 0:
+            raise ValueError("offset must be a non-negative integer")
+        if limit is not None and limit <= 0:
+            raise ValueError("limit must be greater than zero when provided")
 
         collection = self._get_collection()
-        cursor: Iterable[Dict[str, Any]] = collection.find({
-            "user_id": user_id,
-            "session_id": session_id,
-        })
+        sort_direction = ASCENDING if order == "ASC" else DESCENDING
+        cursor: Iterable[Dict[str, Any]] = (
+            collection
+            .find(
+                {
+                    "user_id": user_id,
+                    "session_id": session_id,
+                }
+            )
+            .sort("created_at", sort_direction)
+            .skip(offset)
+        )
+        if limit is not None:
+            cursor = cursor.limit(limit)
 
         histories: List[Dict[str, Any]] = []
         for record in cursor:
@@ -74,9 +90,5 @@ class HistoryStore:
                 }
             )
 
-        histories.sort(
-            key=lambda item: item.get("created_at") or datetime.min,
-            reverse=(order == "DESC"),
-        )
         return histories
 

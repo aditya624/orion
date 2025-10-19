@@ -45,8 +45,8 @@ def api_client(monkeypatch, stub_settings):
             self.calls.append((input, session_id, user_id))
             return f"answer for {input}"
 
-        def get_history(self, user_id, session_id, order="DESC"):
-            self.history_calls.append((user_id, session_id, order))
+        def get_history(self, user_id, session_id, order="DESC", offset=0, limit=20):
+            self.history_calls.append((user_id, session_id, order, offset, limit))
             return [
                 {
                     "user_id": user_id,
@@ -131,7 +131,7 @@ def test_agent_history_endpoint(api_client, stub_settings):
     body = response.json()
     assert "histories" in body
     assert body["histories"]
-    assert agent.history_calls[-1] == ("user-1", "session-1", "DESC")
+    assert agent.history_calls[-1] == ("user-1", "session-1", "DESC", 0, 20)
 
 
 def test_agent_history_endpoint_custom_order(api_client, stub_settings):
@@ -145,7 +145,27 @@ def test_agent_history_endpoint_custom_order(api_client, stub_settings):
     )
 
     assert response.status_code == status.HTTP_200_OK
-    assert agent.history_calls[-1] == ("user-1", "session-1", "ASC")
+    assert agent.history_calls[-1] == ("user-1", "session-1", "ASC", 0, 20)
+
+
+def test_agent_history_endpoint_with_pagination(api_client, stub_settings):
+    client, agent, _ = api_client
+    headers = {"Authorization": f"Bearer {stub_settings.token}"}
+
+    response = client.get(
+        "/v1/agent/history",
+        params={
+            "user_id": "user-1",
+            "session_id": "session-1",
+            "order": "DESC",
+            "offset": 5,
+            "limit": 10,
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert agent.history_calls[-1] == ("user-1", "session-1", "DESC", 5, 10)
 
 
 def test_knowledge_upload_link(api_client, stub_settings):
