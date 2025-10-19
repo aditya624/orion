@@ -61,6 +61,7 @@ HF_TOKEN=<hf-inference-token>
 LANGFUSE_SECRET_KEY=<langfuse-secret-key>
 LANGFUSE_PUBLIC_KEY=<langfuse-public-key>
 LANGFUSE_HOST="https://cloud.langfuse.com"
+TOKEN=<api-token>
 ```
 
 ### 3. Run the API
@@ -68,6 +69,8 @@ LANGFUSE_HOST="https://cloud.langfuse.com"
 uvicorn orion.main:app --reload --port 8000
 ```
 Open http://localhost:8000/docs to explore the interactive Swagger UI.
+
+> ☁️ **Production deployment:** Orion is also live on Google Cloud Run. Visit the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize** using the `TOKEN` shared via email to access the protected endpoints.
 
 ### 4. (Optional) Docker Run
 ```bash
