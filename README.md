@@ -13,7 +13,7 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 
 ---
 
-## 🧠 High-Level Architecture
+## 🧠 High-Level Architecture Production Ready
 
 <p align="center">
   <img src="docs/assets/populix-architecture.svg" alt="Populix agent architecture diagram showing Orion orchestrating Groq Owen 3 32B, Qdrant, MongoDB, Langfuse, and Hugging Face" width="720" />
@@ -39,55 +39,27 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 
 ## 🚀 Quickstart
 
-### 1. Clone & Install
+### 1. Clone & Install (Conda)
 ```bash
 git clone <this-repo-url>
 cd orion
-python -m venv .venv
-source .venv/bin/activate
+conda create -n orion python=3.11 -y
+conda activate orion
+# optional helper if you prefer scripted setup
+bash scripts/init.sh
 pip install -e .
 ```
 
 ### 2. Configure Environment
-Create a `.env` file (or export variables) with the following keys:
+Create a `.env` file (or export variables) with only the required secrets:
 
 ```env
-# FastAPI
-APP_NAME=orion
-VERSION=0.1.6
-TOKEN=<bearer-token-used-by-clients>
-REQUEST_TIMEOUT_S=350
-
-# Groq LLM
-GROQ_API_KEY=<groq-api-key>
-GROQ_TIMEOUT_S=300
-GROQ_MAX_ITERATIONS=6
-
-# Hugging Face Embeddings
-HF_TOKEN=<hf-inference-token>
-HF_MODEL=<hf-embed-model-name>
-EMBEDDING_TIMEOUT_S=300
-
-# Vector Store (Qdrant)
-QDRANT_URL=<https://your-qdrant-instance>
-QDRANT_API_KEY=<qdrant-api-key>
-QDRANT_COLLECTION=<collection-name>
-QDRANT_TOP_K=6
-QDRANT_CHUNK_SIZE=1000
-QDRANT_CHUNK_OVERLAP=100
-
-# MongoDB
 MONGODB_URI=<mongodb-uri>
-MONGODB_DATABASE=orion
-MONGODB_COLLECTION=chat_history
-MONGODB_HISTORY_COLLECTION=histories
-MONGODB_HISTORY_SIZE=6
-
-# Langfuse (prompt + tracing)
-LANGFUSE_SYSTEM_PROMPT_NAME=agent
-LANGFUSE_SYSTEM_PROMPT_VERSION=<optional-version>
-LANGFUSE_KNOWLEDGE_PROMPT_NAME=knowledge
-LANGFUSE_KNOWLEDGE_PROMPT_VERSION=<optional-version>
+GROQ_API_KEY=<groq-api-key>
+QDRANT_API_KEY=<qdrant-api-key>
+HF_TOKEN=<hf-inference-token>
+LANGFUSE_SECRET_KEY=<langfuse-secret-key>
+LANGFUSE_PUBLIC_KEY=<langfuse-public-key>
 ```
 
 > 💡 **Tip:** When running locally, services such as MongoDB and Qdrant can be launched using Docker containers. Self-hosted deployments keep the stack open-source end-to-end.
