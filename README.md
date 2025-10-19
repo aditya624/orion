@@ -151,8 +151,6 @@ curl -G http://localhost:8000/v1/agent/history \
 
 #### History Response Example
 
-> Gunakan parameter `offset` (default: 0) dan `limit` (default: 20) untuk melakukan pagination pada riwayat percakapan.
-
 ```json
 {
   "histories": [
