@@ -2,6 +2,10 @@
 
 Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learning Engineer Technical Assignment" brief by exposing a minimal yet production-minded API for interacting with an LLM-powered agent. The agent is fine-tuned (via prompt + tools) to answer questions about **Populix**—from business model insights to product capabilities—by grounding its responses in a curated knowledge base.
 
+### ☁️ Production Deployment
+
+Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize**, supplying the `TOKEN` shared via email to access the protected endpoints.
+
 ---
 
 ## 🎯 Assignment Alignment
@@ -69,8 +73,6 @@ TOKEN=<api-token>
 uvicorn orion.main:app --reload --port 8000
 ```
 Open http://localhost:8000/docs to explore the interactive Swagger UI.
-
-> ☁️ **Production deployment:** Orion is also live on Google Cloud Run. Visit the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize** using the `TOKEN` shared via email to access the protected endpoints.
 
 ### 4. (Optional) Docker Run
 ```bash
@@ -200,14 +202,7 @@ orion/
 
 ---
 
-## 🧭 Roadmap Ideas
-- [ ] Add automated deployment manifests (Helm/Compose) for the full stack.
-- [ ] Provide synthetic data loaders for local development without production credentials.
-- [ ] Extend evaluation harness (e.g., RAGAS) for knowledge grounding quality.
-
----
-
 ## 🤝 Contributing
-Issues and pull requests are welcome! Please open a discussion with the Populix ML team before major changes. Follow conventional commit messages and ensure the CI suite passes.
+Issues and pull requests are welcome!
 
 Happy building! 💫
