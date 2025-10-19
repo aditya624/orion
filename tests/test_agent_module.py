@@ -1,0 +1,160 @@
+import types
+import pytest
+
+
+@pytest.fixture
+def stub_settings():
+    return types.SimpleNamespace(
+        app_name="Test App",
+        version="0.1.0",
+        token="test-token",
+        groq=types.SimpleNamespace(api_key="fake-key"),
+        mongodb=types.SimpleNamespace(
+            uri="mongodb://localhost",
+            database="test_db",
+            collection="chat_history",
+            history_size=5,
+        ),
+    )
+
+
+@pytest.fixture
+def agent_module(monkeypatch, stub_settings):
+    from orion.agent import agent as agent_module
+
+    class FakeLangfuse:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeKnowledge:
+        def __init__(self):
+            self.calls = []
+
+        def query(self, *args, **kwargs):
+            self.calls.append((args, kwargs))
+            return "knowledge-response"
+
+    class FakeStructuredTool:
+        def __init__(self, func, args_schema, name, description):
+            self.func = func
+            self.args_schema = args_schema
+            self.name = name
+            self.description = description
+
+        @classmethod
+        def from_function(cls, func, args_schema=None, name=None, description=None):
+            return cls(func, args_schema, name, description)
+
+    class FakeBoundLLM:
+        def __init__(self, tools):
+            self.tools = tools
+            self.invoke_calls = []
+
+        def invoke(self, inputs, config):
+            self.invoke_calls.append((inputs, config))
+            return types.SimpleNamespace(content="llm-result")
+
+    class FakeChatGroq:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.bound_tools = None
+
+        def bind_tools(self, tools):
+            self.bound_tools = tools
+            return FakeBoundLLM(tools)
+
+    class FakeHistory:
+        instances = []
+
+        def __init__(self, session_id, connection_string, database_name, collection_name, history_size):
+            self.session_id = session_id
+            self.connection_string = connection_string
+            self.database_name = database_name
+            self.collection_name = collection_name
+            self.history_size = history_size
+            self.messages = []
+            self.__class__.instances.append(self)
+
+        def add_user_message(self, message):
+            self.messages.append(("user", message))
+
+        def add_ai_message(self, message):
+            self.messages.append(("ai", message))
+
+    def fake_load_prompt(settings_obj, langfuse):
+        return {
+            "agent": {
+                "config": {"model": "stub-model"},
+                "prompt": "Today is {current_date}"
+            },
+            "knowledge": {
+                "config": {"name": "knowledge-tool"},
+                "description": "Access knowledge base"
+            },
+        }
+
+    class KnowledgeArgs(types.SimpleNamespace):
+        pass
+
+    def fake_get_args_schema(prompt):
+        return {"knowledge": KnowledgeArgs}
+
+    class FakeGraph:
+        def __init__(self, llm):
+            self.llm = llm
+            self.calls = []
+
+        def invoke(self, state, config):
+            self.calls.append((state, config))
+            return {"messages": [types.SimpleNamespace(content="graph-answer")]}
+
+    def fake_graph_builder(self):
+        llm_with_tools = self.model.bind_tools(self.bindtools)
+        return FakeGraph(llm_with_tools)
+
+    monkeypatch.setattr(agent_module, "Langfuse", FakeLangfuse)
+    monkeypatch.setattr(agent_module, "Knowledge", FakeKnowledge)
+    monkeypatch.setattr(agent_module, "StructuredTool", FakeStructuredTool)
+    monkeypatch.setattr(agent_module, "ChatGroq", FakeChatGroq)
+    monkeypatch.setattr(agent_module, "MongoDBChatMessageHistory", FakeHistory)
+    monkeypatch.setattr(agent_module, "load_prompt", fake_load_prompt)
+    monkeypatch.setattr(agent_module, "get_args_schema", fake_get_args_schema)
+    monkeypatch.setattr(agent_module, "settings", stub_settings)
+    monkeypatch.setattr(agent_module.Agent, "graph_builder", fake_graph_builder)
+
+    return agent_module
+
+
+def test_agent_initializes_with_structured_tool(agent_module):
+    agent = agent_module.Agent()
+
+    assert agent.model.kwargs["model"] == "stub-model"
+    assert agent.model.kwargs["api_key"] == "fake-key"
+    assert len(agent.bindtools) == 1
+
+    tool = agent.bindtools[0]
+    assert tool.name == "knowledge-tool"
+    assert tool.description == "Access knowledge base"
+    assert agent.model.bound_tools is agent.bindtools
+
+
+def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
+    agent = agent_module.Agent()
+    FakeHistory = agent_module.MongoDBChatMessageHistory
+    FakeHistory.instances.clear()
+
+    answer = agent.generate("What is Orion?", session_id="session-123")
+
+    assert answer == "graph-answer"
+    graph = agent.graph
+    assert graph.calls, "Graph should be invoked"
+    state, config = graph.calls[-1]
+    assert state["messages"] == [("human", "What is Orion?")]
+    assert config["callbacks"], "Callbacks should be passed"
+
+    history = FakeHistory.instances[-1]
+    assert history.history_size == agent_module.settings.mongodb.history_size
+    assert history.messages == [
+        ("user", "What is Orion?"),
+        ("ai", "graph-answer"),
+    ]

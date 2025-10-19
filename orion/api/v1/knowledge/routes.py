@@ -14,8 +14,8 @@ class UploadLinksRequest(BaseModel):
     links: List[HttpUrl] = Field(..., description="List URL")
 
 class UploadLinksResponse(BaseModel):
-    exists: List[HttpUrl] = Field(default_factory=list)
-    not_exists: List[HttpUrl] = Field(default_factory=list)
+    skipped: List[HttpUrl] = Field(default_factory=list)
+    processed: List[HttpUrl] = Field(default_factory=list)
     counts: Dict[str, int]
 
 class QueryResponse(BaseModel):
@@ -42,12 +42,15 @@ async def upload_link(payload: UploadLinksRequest):
         logger.error("Upload failed", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail={"message": "Unexpected error", "error": str(e), "request_id": request_id})
 
+    skipped_links = result.get("exists", [])
+    processed_links = result.get("not_exists", [])
+
     return UploadLinksResponse(
-        exists=result.get("exists", []),
-        not_exists=result.get("not_exists", []),
+        skipped=skipped_links,
+        processed=processed_links,
         counts={
-            "exists": len(result.get("exists", [])),
-            "not_exists": len(result.get("not_exists", [])),
+            "skipped": len(skipped_links),
+            "processed": len(processed_links),
             "total_input": len(payload.links),
             "total_unique": len(unique_links),
         },

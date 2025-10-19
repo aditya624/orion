@@ -6,6 +6,10 @@ on:
   pull_request:
     types: [closed]
     branches: [ main ]
+  workflow_run:
+    workflows:
+      - "Release CI → Bump version → Auto-merge to main"
+    types: [completed]
   workflow_dispatch: {}
 
 permissions:
@@ -21,10 +25,21 @@ concurrency:
 
 jobs:
   build-and-push:
-    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'release') ||
+      (github.event_name != 'pull_request' && github.event_name != 'workflow_run')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout (workflow_run)
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Checkout (default)
+        if: github.event_name != 'workflow_run'
+        uses: actions/checkout@v4
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
       - name: Read version from pyproject.toml
