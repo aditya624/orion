@@ -67,12 +67,28 @@ async def get_history(
         default="DESC",
         description="Sort histories by creation time: 'ASC' for oldest first or 'DESC' for newest first.",
     ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Number of records to skip before returning results.",
+    ),
+    limit: int = Query(
+        default=20,
+        ge=1,
+        description="Maximum number of history records to return.",
+    ),
 ):
     request_id = str(uuid.uuid4())
     start = time.perf_counter()
 
     try:
-        histories = _agent.get_history(user_id=user_id, session_id=session_id, order=order)
+        histories = _agent.get_history(
+            user_id=user_id,
+            session_id=session_id,
+            order=order,
+            offset=offset,
+            limit=limit,
+        )
         latency_ms = int((time.perf_counter() - start) * 1000)
         logger.info("Fetch history success", extra={"request_id": request_id, "latency_ms": latency_ms})
         return HistoryResponse(histories=histories)
