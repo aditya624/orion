@@ -122,28 +122,14 @@ curl -X POST http://localhost:8000/v1/agent/generate \
 }
 ```
 
-### Knowledge Service (`/v1/knowledge`)
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET`  | `/health` | Liveness probe for the knowledge ingestor. |
-| `POST` | `/upload-link` | Deduplicates and ingests new Populix web pages. Stores chunks in Qdrant and embeddings on Hugging Face. |
-
-#### Upload Request Example
-```bash
-TOKEN="<your-api-token>"
-curl -X POST http://localhost:8000/v1/knowledge/upload-link \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{ "links": ["https://populix.co/insights"] }'
-```
-
 #### History Request Example
 ```bash
 TOKEN="<your-api-token>"
 curl -G http://localhost:8000/v1/agent/history \
   -H "Authorization: Bearer $TOKEN" \
   --data-urlencode "user_id=demo-user" \
-  --data-urlencode "session_id=session-demo"
+  --data-urlencode "session_id=demo-session" \
+  --data-urlencode "order=DESC"
 ```
 
 #### History Response Example
@@ -159,6 +145,21 @@ curl -G http://localhost:8000/v1/agent/history \
     }
   ]
 }
+```
+
+### Knowledge Service (`/v1/knowledge`)
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/health` | Liveness probe for the knowledge ingestor. |
+| `POST` | `/upload-link` | Deduplicates and ingests new Populix web pages. Stores chunks in Qdrant and embeddings on Hugging Face. |
+
+#### Upload Request Example
+```bash
+TOKEN="<your-api-token>"
+curl -X POST http://localhost:8000/v1/knowledge/upload-link \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "links": ["https://populix.co/insights"] }'
 ```
 
 ---
