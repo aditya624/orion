@@ -60,9 +60,8 @@ QDRANT_API_KEY=<qdrant-api-key>
 HF_TOKEN=<hf-inference-token>
 LANGFUSE_SECRET_KEY=<langfuse-secret-key>
 LANGFUSE_PUBLIC_KEY=<langfuse-public-key>
+LANGFUSE_HOST="https://cloud.langfuse.com"
 ```
-
-> 💡 **Tip:** When running locally, services such as MongoDB and Qdrant can be launched using Docker containers. Self-hosted deployments keep the stack open-source end-to-end.
 
 ### 3. Run the API
 ```bash
@@ -72,8 +71,8 @@ Open http://localhost:8000/docs to explore the interactive Swagger UI.
 
 ### 4. (Optional) Docker Run
 ```bash
-docker build -t orion-agent .
-docker run --env-file .env -p 8000:8000 orion-agent
+docker pull aditya624/orion:latest
+docker run --env-file .env -p 8000:8000 aditya624/orion:latest
 ```
 
 ---
