@@ -7,7 +7,7 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 ## 🎯 Assignment Alignment
 | Requirement | How Orion Delivers |
 |-------------|--------------------|
-| Build a functional API service on top of an open-source LLM | Uses `langchain` with the **Groq-hosted Llama 3.1** chat model plus tool bindings. |
+| Build a functional API service on top of an open-source LLM | Uses `langchain` with the **Groq-hosted Qwen 3 32B** chat model plus tool bindings. |
 | Provide a public API endpoint that exposes the model's reasoning ability | `/v1/agent/generate` handles authenticated question answering with retrieval augmentation. |
 | Run locally or on cloud infrastructure | Runs with `uvicorn` locally or via Docker; relies on managed services (MongoDB, Qdrant, Langfuse) but can be substituted with self-hosted instances. |
 
@@ -16,7 +16,7 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 ## 🧠 High-Level Architecture Production Ready
 
 <p align="center">
-  <img src="docs/assets/populix-architecture.svg" alt="Populix agent architecture diagram showing Orion orchestrating Groq Owen 3 32B, Qdrant, MongoDB, Langfuse, and Hugging Face" width="720" />
+  <img src="docs/assets/populix-architecture.svg" alt="Populix agent architecture diagram showing Orion orchestrating Groq Qwen 3 32B, Qdrant, MongoDB, Langfuse, and Hugging Face" width="720" />
 </p>
 
 > 📁 The source for this illustration lives at [`docs/assets/populix-architecture.svg`](docs/assets/populix-architecture.svg) so you can update or swap the file without editing the README copy.
@@ -31,7 +31,7 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 | **Qdrant Vector DB** | Stores embeddings and supports semantic search to supply the agent with grounded Populix knowledge. |
 | **MongoDB Chat History** | Maintains per-user conversation state so follow-up questions inherit prior context. |
 | **Langfuse Observability** | Tracks prompts, traces, and evaluation metrics for debugging and governance. |
-| **Groq + Owen 3 32B** | Groq's accelerated inference host runs the open-source Owen 3 32B model that ultimately drafts the natural-language answer. |
+| **Groq + Qwen 3 32B** | Groq's accelerated inference host runs the open-source Qwen 3 32B model that ultimately drafts the natural-language answer. |
 
 > 🖼️ The layout above mirrors the provided high-level architecture diagram, with the Orion service orchestrating data flow between retrieval, memory, observability, and Groq-hosted LLM components.
 
@@ -113,6 +113,15 @@ curl -X POST http://localhost:8000/v1/agent/generate \
       }'
 ```
 
+#### Generate Response Example
+```json
+{
+  "answer": "Hai Sobat, Populix menawarkan berbagai produk dan layanan untuk kebutuhan riset pasar dan sosial, antara lain:\n\n1. **PopSurvey**  \n   Platform survei *self-service* untuk membuat dan menjalankan survei secara mandiri dengan mudah.\n\n2. **Market Research Solutions**  \n   - **Customer Experience**: Analisis NPS, studi kepuasan pelanggan.  \n   - **Brand Research**: Pemetaan persepsi, kesehatan merek, dan posisi pasar.  \n   - **Product Research**: Uji konsep, pengujian produk, dan segmentasi pasar.  \n   - **Market Overview**: Analisis tren industri dan peluang pasar.\n\n3. **Solutions Berdasarkan Industri**  \n   - **FMCG**: Studi perilaku konsumen, inovasi produk, dan strategi pemasaran.  \n   - **Professional Services**: Pemantauan kesehatan merek dan strategi akuisisi klien.  \n   - **ICT & FinTech**: Analisis adopsi teknologi dan kebutuhan pasar.  \n   - **Banking**: Penelitian pola penggunaan layanan keuangan.\n\n4. **Data Hub & Panel**  \n   Akses ke basis data responden yang luas di Indonesia untuk menjangkau target audiens secara akurat.\n\n5. **Layanan Khusus**  \n   - Bantuan pengembangan kuesioner.  \n   - Analisis data dan pelaporan mendalam.  \n\nUntuk detail lebih lanjut, kunjungi [situs resmi Populix](https://info.populix.co/). Semoga bermanfaat! 😊",
+  "session_id": "demo-session",
+  "latency_ms": 11060
+}
+```
+
 ### Knowledge Service (`/v1/knowledge`)
 | Method | Path | Description |
 |--------|------|-------------|
@@ -126,6 +135,30 @@ curl -X POST http://localhost:8000/v1/knowledge/upload-link \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "links": ["https://populix.co/insights"] }'
+```
+
+#### History Request Example
+```bash
+TOKEN="<your-api-token>"
+curl -G http://localhost:8000/v1/agent/history \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode "user_id=demo-user" \
+  --data-urlencode "session_id=session-demo"
+```
+
+#### History Response Example
+```json
+{
+  "histories": [
+    {
+      "user_id": "demo-user",
+      "session_id": "demo-session",
+      "input": "Halo berikan apa saja product populix!",
+      "answer": "Hai Sobat, Populix menawarkan berbagai produk dan layanan untuk kebutuhan riset pasar dan sosial, antara lain:\n\n1. **PopSurvey**  \n   Platform survei *self-service* untuk membuat dan menjalankan survei secara mandiri dengan mudah.\n\n2. **Market Research Solutions**  \n   - **Customer Experience**: Analisis NPS, studi kepuasan pelanggan.  \n   - **Brand Research**: Pemetaan persepsi, kesehatan merek, dan posisi pasar.  \n   - **Product Research**: Uji konsep, pengujian produk, dan segmentasi pasar.  \n   - **Market Overview**: Analisis tren industri dan peluang pasar.\n\n3. **Solutions Berdasarkan Industri**  \n   - **FMCG**: Studi perilaku konsumen, inovasi produk, dan strategi pemasaran.  \n   - **Professional Services**: Pemantauan kesehatan merek dan strategi akuisisi klien.  \n   - **ICT & FinTech**: Analisis adopsi teknologi dan kebutuhan pasar.  \n   - **Banking**: Penelitian pola penggunaan layanan keuangan.\n\n4. **Data Hub & Panel**  \n   Akses ke basis data responden yang luas di Indonesia untuk menjangkau target audiens secara akurat.\n\n5. **Layanan Khusus**  \n   - Bantuan pengembangan kuesioner.  \n   - Analisis data dan pelaporan mendalam.  \n\nUntuk detail lebih lanjut, kunjungi [situs resmi Populix](https://info.populix.co/). Semoga bermanfaat! 😊",
+      "created_at": "2025-10-19T09:02:18.446000"
+    }
+  ]
+}
 ```
 
 ---
