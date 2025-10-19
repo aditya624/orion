@@ -55,7 +55,7 @@ pip install -e .
 ```
 
 ### 2. Configure Environment
-Create a `.env` file (or export variables) with only the required secrets:
+Create a `.env` file (or export variables) with only the required secrets (all sensitive keys have been shared with you via email):
 
 ```env
 MONGODB_URI=<mongodb-uri>
