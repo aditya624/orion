@@ -9,7 +9,7 @@ Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https:/
 ### 🔄 Development-to-Production Flow
 
 <p align="center">
-  <img src="docs/assets/populix-development-process.svg" alt="Development to production workflow showing development, GitHub, CI, Docker Hub, Cloud Run, Secret Manager, and Public API" width="820" />
+  <img src="./docs/assets/populix-development-process.svg" alt="Development to production workflow showing development, GitHub, CI, Docker Hub, Cloud Run, Secret Manager, and Public API" width="820" />
 </p>
 
 This flow illustrates how changes ship safely to users:
@@ -35,7 +35,7 @@ This flow illustrates how changes ship safely to users:
 ## 🧠 High-Level Architecture Production Ready
 
 <p align="center">
-  <img src="docs/assets/populix-architecture-production.svg" alt="Populix agent architecture diagram showing Orion orchestrating Groq Qwen 3 32B, Qdrant, MongoDB, Langfuse, and Hugging Face" width="720" />
+  <img src="./docs/assets/populix-architecture-production.svg" alt="Populix agent architecture diagram showing Orion orchestrating Groq Qwen 3 32B, Qdrant, MongoDB, Langfuse, and Hugging Face" width="720" />
 </p>
 
 ### Component Responsibilities
