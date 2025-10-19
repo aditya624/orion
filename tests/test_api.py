@@ -116,9 +116,11 @@ def test_knowledge_upload_link(api_client, stub_settings):
         "https://example.com/b",
     ]
     body = response.json()
+    assert body["skipped"] == ["https://example.com/a"]
+    assert body["processed"] == ["https://example.com/b"]
     assert body["counts"] == {
-        "exists": 1,
-        "not_exists": 1,
+        "skipped": 1,
+        "processed": 1,
         "total_input": 3,
         "total_unique": 2,
     }

@@ -28,3 +28,8 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+      - name: Publish test summary
+        if: success()
+        run: |
+          echo "### ✅ Pytest suite completed successfully" >> "$GITHUB_STEP_SUMMARY"
