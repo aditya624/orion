@@ -2,7 +2,7 @@ name: Release CI → Bump version → Auto-merge to main
 
 on:
   push:
-    branches: [ release ]
+    branches: [ release, develop ]
     paths:
       - '**/*.py'
       - 'pyproject.toml'
@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   bump-version:
+    if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
@@ -77,6 +78,25 @@ jobs:
 
   build-test:
     needs: bump-version
+    if: github.ref == 'refs/heads/release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: dummy/test:release-ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-test-develop:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,6 +115,7 @@ jobs:
 
   open-pr-and-automerge:
     needs: build-test
+    if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
