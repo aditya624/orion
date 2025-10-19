@@ -1,6 +1,8 @@
 import time
 import uuid
-from fastapi import APIRouter, HTTPException, Request
+from datetime import datetime
+from typing import List, Literal
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from orion.agent.agent import Agent
 from orion.logging import logger
@@ -12,11 +14,24 @@ _agent = Agent()
 class GenerateRequest(BaseModel):
     input: str = Field(..., description="Question")
     session_id: str = Field("halo", description="Session ID")
+    user_id: str = Field(..., description="User identifier")
 
 class GenerateResponse(BaseModel):
     answer: str
     session_id: str
     latency_ms: int
+
+
+class HistoryEntry(BaseModel):
+    user_id: str
+    session_id: str
+    input: str
+    answer: str
+    created_at: datetime | None = None
+
+
+class HistoryResponse(BaseModel):
+    histories: List[HistoryEntry]
 
 @router.get("/health")
 async def health_check():
@@ -28,7 +43,7 @@ async def generate_response(req: Request, payload: GenerateRequest):
     start = time.perf_counter()
 
     try:
-        answer = _agent.generate(input=payload.input, session_id=payload.session_id)
+        answer = _agent.generate(input=payload.input, session_id=payload.session_id, user_id=payload.user_id)
 
         latency_ms = int((time.perf_counter() - start) * 1000)
         logger.info("Agent success", extra={"request_id": request_id})
@@ -42,3 +57,26 @@ async def generate_response(req: Request, payload: GenerateRequest):
         latency_ms = int((time.perf_counter() - start) * 1000)
         logger.error("Agent failed", extra={"request_id": request_id})
         raise HTTPException(status_code=500, detail={"message": "Agent failed", "error": str(e), "request_id": request_id})
+
+
+@router.get("/history", response_model=HistoryResponse)
+async def get_history(
+    user_id: str,
+    session_id: str,
+    order: Literal["ASC", "DESC"] = Query(
+        default="DESC",
+        description="Sort histories by creation time: 'ASC' for oldest first or 'DESC' for newest first.",
+    ),
+):
+    request_id = str(uuid.uuid4())
+    start = time.perf_counter()
+
+    try:
+        histories = _agent.get_history(user_id=user_id, session_id=session_id, order=order)
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        logger.info("Fetch history success", extra={"request_id": request_id, "latency_ms": latency_ms})
+        return HistoryResponse(histories=histories)
+    except Exception as e:
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        logger.error("Fetch history failed", extra={"request_id": request_id, "latency_ms": latency_ms})
+        raise HTTPException(status_code=500, detail={"message": "Failed to fetch history", "error": str(e), "request_id": request_id})

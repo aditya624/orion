@@ -19,6 +19,7 @@ class MongodbConfig(BaseModel):
     database: str = os.getenv("MONGODB_DATABASE", "")
     collection: str = os.getenv("MONGODB_COLLECTION", "")
     history_size: int = int(os.getenv("MONGODB_HISTORY_SIZE", "6"))
+    history_collection: str = os.getenv("MONGODB_HISTORY_COLLECTION", "histories")
 
 class QdrantConfig(BaseModel):
     url: str = os.getenv("QDRANT_URL", "")
