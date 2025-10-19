@@ -144,10 +144,13 @@ curl -G http://localhost:8000/v1/agent/history \
   -H "Authorization: Bearer $TOKEN" \
   --data-urlencode "user_id=demo-user" \
   --data-urlencode "session_id=demo-session" \
-  --data-urlencode "order=DESC"
+  --data-urlencode "order=DESC" \
+  --data-urlencode "offset=0" \
+  --data-urlencode "limit=20"
 ```
 
 #### History Response Example
+
 ```json
 {
   "histories": [

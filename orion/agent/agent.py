@@ -95,8 +95,14 @@ class Agent(object):
 
         return graph
 
-    def get_history(self, user_id, session_id, order="DESC"):
-        return self.history_store.list(user_id=user_id, session_id=session_id, order=order)
+    def get_history(self, user_id, session_id, order="DESC", offset=0, limit=20):
+        return self.history_store.list(
+            user_id=user_id,
+            session_id=session_id,
+            order=order,
+            offset=offset,
+            limit=limit,
+        )
 
     def generate(self, input, session_id, user_id, extra_callbacks=[]):
         answer = self.graph.invoke(
