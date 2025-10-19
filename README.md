@@ -6,6 +6,21 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 
 Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize**, supplying the `TOKEN` shared via email to access the protected endpoints.
 
+### 🔄 Development-to-Production Flow
+
+<p align="center">
+  <img src="docs/assets/populix-dev-process.svg" alt="Development to production workflow showing development, GitHub, CI, Docker Hub, Cloud Run, Secret Manager, and Public API" width="820" />
+</p>
+
+This flow illustrates how changes ship safely to users:
+
+1. **Development Process** — Features are planned, implemented, and reviewed locally before opening a pull request.
+2. **Push / Merge to GitHub** — Once approved, the merge triggers the CI pipeline on the hosted repository.
+3. **CI: Test · Build · Push** — Automated checks run, the Docker image is built, and the artifact is pushed to Docker Hub.
+4. **Docker Hub Registry** — Serves as the immutable source for runtime images consumed in production.
+5. **Cloud Run Deployment** — The latest image is pulled and rolled out on Google Cloud Run, wired to the public API endpoint.
+6. **Secret Manager** — Managed secrets (TOKEN, database keys, Langfuse keys, etc.) are injected as environment variables during deployment.
+
 ---
 
 ## 🎯 Assignment Alignment
