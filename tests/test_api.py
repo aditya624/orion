@@ -21,6 +21,7 @@ def stub_settings(monkeypatch):
             database="test_db",
             collection="chat_history",
             history_size=5,
+            history_collection="histories",
         ),
         langfuse=types.SimpleNamespace(
             system_prompt_name="agent",
@@ -38,10 +39,23 @@ def api_client(monkeypatch, stub_settings):
     class FakeAgent:
         def __init__(self):
             self.calls = []
+            self.history_calls = []
 
-        def generate(self, input, session_id, extra_callbacks=None):
-            self.calls.append((input, session_id))
+        def generate(self, input, session_id, user_id, extra_callbacks=None):
+            self.calls.append((input, session_id, user_id))
             return f"answer for {input}"
+
+        def get_history(self, user_id, session_id, order="DESC"):
+            self.history_calls.append((user_id, session_id, order))
+            return [
+                {
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "input": "hello",
+                    "answer": "answer for hello",
+                    "created_at": None,
+                }
+            ]
 
     class FakeKnowledge:
         def __init__(self):
@@ -88,19 +102,50 @@ def test_root_endpoint(api_client):
 def test_agent_generate_endpoint(api_client, stub_settings):
     client, agent, _ = api_client
     headers = {"Authorization": f"Bearer {stub_settings.token}"}
-    payload = {"input": "hello", "session_id": "abc"}
+    payload = {"input": "hello", "session_id": "abc", "user_id": "user-1"}
 
     response = client.post("/v1/agent/generate", json=payload, headers=headers)
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["answer"] == "answer for hello"
-    assert agent.calls[-1] == ("hello", "abc")
+    assert agent.calls[-1] == ("hello", "abc", "user-1")
 
 
 def test_agent_generate_requires_token(api_client):
     client, _, _ = api_client
-    response = client.post("/v1/agent/generate", json={"input": "hi", "session_id": "s"})
+    response = client.post("/v1/agent/generate", json={"input": "hi", "session_id": "s", "user_id": "user"})
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_agent_history_endpoint(api_client, stub_settings):
+    client, agent, _ = api_client
+    headers = {"Authorization": f"Bearer {stub_settings.token}"}
+
+    response = client.get(
+        "/v1/agent/history",
+        params={"user_id": "user-1", "session_id": "session-1"},
+        headers=headers,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert "histories" in body
+    assert body["histories"]
+    assert agent.history_calls[-1] == ("user-1", "session-1", "DESC")
+
+
+def test_agent_history_endpoint_custom_order(api_client, stub_settings):
+    client, agent, _ = api_client
+    headers = {"Authorization": f"Bearer {stub_settings.token}"}
+
+    response = client.get(
+        "/v1/agent/history",
+        params={"user_id": "user-1", "session_id": "session-1", "order": "ASC"},
+        headers=headers,
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert agent.history_calls[-1] == ("user-1", "session-1", "ASC")
 
 
 def test_knowledge_upload_link(api_client, stub_settings):
