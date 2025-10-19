@@ -99,6 +99,7 @@ Requests without a matching token receive `401 Unauthorized` responses.
 
 #### Generate Request Example
 ```bash
+TOKEN="<your-api-token>"
 curl -X POST http://localhost:8000/v1/agent/generate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -117,6 +118,7 @@ curl -X POST http://localhost:8000/v1/agent/generate \
 
 #### Upload Request Example
 ```bash
+TOKEN="<your-api-token>"
 curl -X POST http://localhost:8000/v1/knowledge/upload-link \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
