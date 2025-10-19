@@ -34,14 +34,7 @@ jobs:
       - name: Publish test summary
         if: success()
         run: |
-          COVERAGE_PERCENT=$(python - <<'PY'
-import xml.etree.ElementTree as ET
-
-tree = ET.parse('coverage.xml')
-line_rate = float(tree.getroot().attrib.get('line-rate', 0))
-print(f"{line_rate * 100:.2f}")
-PY
-          )
+          COVERAGE_PERCENT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); line_rate = float(tree.getroot().attrib.get('line-rate', 0)); print(f'{line_rate * 100:.2f}')")
           {
             echo "### ✅ Pytest suite completed successfully";
             echo "";
