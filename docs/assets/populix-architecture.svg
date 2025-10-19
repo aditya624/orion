@@ -1,0 +1,74 @@
+<svg width="960" height="520" viewBox="0 0 960 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .title { font: 700 26px 'Segoe UI', sans-serif; fill: #0b2545; }
+    .subtitle { font: 500 18px 'Segoe UI', sans-serif; fill: #0b2545; }
+    .box { fill: #ffffff; stroke: #0b2545; stroke-width: 2.5; rx: 16; ry: 16; }
+    .box-llm { fill: #fef2f2; stroke: #b91c1c; stroke-width: 2.5; rx: 16; ry: 16; }
+    .box-memory { fill: #eef2ff; stroke: #312e81; stroke-width: 2.5; rx: 16; ry: 16; }
+    .box-obs { fill: #f5f3ff; stroke: #6d28d9; stroke-width: 2.5; rx: 16; ry: 16; }
+    .box-rag { fill: #ecfeff; stroke: #0e7490; stroke-width: 2.5; rx: 16; ry: 16; }
+    .label { font: 600 16px 'Segoe UI', sans-serif; fill: #0b2545; }
+    .label-small { font: 400 13px 'Segoe UI', sans-serif; fill: #1f2937; }
+    .emoji { font: 24px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif; }
+    .center { text-anchor: middle; }
+    .arrow { stroke: #0b2545; stroke-width: 2.5; marker-end: url(#arrowhead); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#0b2545" />
+    </marker>
+  </defs>
+  <rect x="30" y="30" width="900" height="460" rx="24" ry="24" fill="#f8fafc" stroke="#cbd5f5" stroke-width="2" />
+  <text class="title" x="480" y="70" text-anchor="middle">Populix Agent High-Level Architecture</text>
+  <g transform="translate(120,140)">
+    <rect class="box" width="200" height="120" />
+    <text class="emoji" x="100" y="38" text-anchor="middle">🌐</text>
+    <text class="label center" x="100" y="72">Populix Clients</text>
+    <text class="label-small center" x="100" y="98">Apps • Analysts • Integrations</text>
+  </g>
+  <g transform="translate(380,120)">
+    <rect class="box" width="220" height="160" />
+    <text class="emoji" x="110" y="42" text-anchor="middle">🛰️</text>
+    <text class="label center" x="110" y="76">Orion Service</text>
+    <text class="label-small center" x="110" y="102">FastAPI • Auth • Routing</text>
+    <text class="label-small center" x="110" y="126">LangChain / LangGraph Agent</text>
+  </g>
+  <g transform="translate(700,120)">
+    <rect class="box-llm" width="200" height="160" />
+    <text class="emoji" x="100" y="42" text-anchor="middle">⚡</text>
+    <text class="label center" x="100" y="76">Groq Inference</text>
+    <text class="label-small center" x="100" y="102">Owen 3 32B (Open Source LLM)</text>
+    <text class="label-small center" x="100" y="126">Streaming Responses</text>
+  </g>
+  <g transform="translate(380,320)">
+    <rect class="box-rag" width="220" height="150" />
+    <text class="emoji" x="110" y="40" text-anchor="middle">🔎</text>
+    <text class="label center" x="110" y="74">Qdrant Vector DB</text>
+    <text class="label-small center" x="110" y="100">Semantic Search for RAG</text>
+    <text class="label-small center" x="110" y="124">Backed by HF Embeddings 🤗</text>
+  </g>
+  <g transform="translate(120,320)">
+    <rect class="box-memory" width="200" height="150" />
+    <text class="emoji" x="100" y="40" text-anchor="middle">🍃</text>
+    <text class="label center" x="100" y="74">MongoDB Memory</text>
+    <text class="label-small center" x="100" y="100">Conversation History</text>
+    <text class="label-small center" x="100" y="124">Session Recall</text>
+  </g>
+  <g transform="translate(700,320)">
+    <rect class="box-obs" width="200" height="150" />
+    <text class="emoji" x="100" y="40" text-anchor="middle">🪄</text>
+    <text class="label center" x="100" y="74">Langfuse Observability</text>
+    <text class="label-small center" x="100" y="100">Prompt & Trace Management</text>
+    <text class="label-small center" x="100" y="124">Quality & Analytics</text>
+  </g>
+  <path class="arrow" d="M320 200 H380" />
+  <path class="arrow" d="M600 200 H700" />
+  <path class="arrow" d="M490 280 V320" />
+  <path class="arrow" d="M220 260 V320" />
+  <path class="arrow" d="M820 280 V320" />
+  <path class="arrow" d="M600 380 H700" />
+  <path class="arrow" d="M320 380 H380" />
+  <path class="arrow" d="M600 220 C660 220 660 320 700 320" />
+  <path class="arrow" d="M380 180 C340 180 340 320 320 320" />
+  <text class="subtitle" x="480" y="490" text-anchor="middle">LangChain orchestrates retrieval, memory, and observability to answer Populix questions.</text>
+</svg>

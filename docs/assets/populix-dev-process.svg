@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1040" height="260" viewBox="0 0 1040 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .node { fill: #ffffff; stroke: #111827; stroke-width: 2; rx: 14; ry: 14; }
+    .label { font-family: 'Inter', 'Segoe UI', sans-serif; font-size: 16px; fill: #111827; text-anchor: middle; }
+    .subtitle { font-size: 13px; fill: #4b5563; text-anchor: middle; }
+    .arrow { stroke: #2563eb; stroke-width: 2.5; marker-end: url(#arrowhead); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2563eb" />
+    </marker>
+  </defs>
+
+  <!-- Development Process -->
+  <rect class="node" x="20" y="60" width="180" height="130" />
+  <text class="label" x="110" y="115">Development</text>
+  <text class="label" x="110" y="138">Process</text>
+  <text class="subtitle" x="110" y="162">Plan → Code → Review</text>
+
+  <!-- Push / Merge -->
+  <rect class="node" x="230" y="60" width="160" height="130" />
+  <text class="label" x="310" y="125">Push / Merge</text>
+  <text class="subtitle" x="310" y="149">PR Approved</text>
+
+  <!-- GitHub Repository -->
+  <rect class="node" x="420" y="30" width="170" height="90" />
+  <text class="label" x="505" y="70">GitHub Repository</text>
+
+  <!-- CI/CD -->
+  <rect class="node" x="420" y="140" width="170" height="90" />
+  <text class="label" x="505" y="180">Test · Build · Push</text>
+  <text class="subtitle" x="505" y="204">Docker Image</text>
+
+  <!-- Docker Registry -->
+  <rect class="node" x="620" y="60" width="170" height="130" />
+  <text class="label" x="705" y="120">Docker Hub</text>
+  <text class="subtitle" x="705" y="144">Image Registry</text>
+
+  <!-- Cloud Run -->
+  <rect class="node" x="820" y="30" width="200" height="90" />
+  <text class="label" x="920" y="70">Cloud Run</text>
+  <text class="subtitle" x="920" y="94">Deployment Service</text>
+
+  <!-- Secret Manager -->
+  <rect class="node" x="820" y="140" width="200" height="90" />
+  <text class="label" x="920" y="180">Secret Manager</text>
+  <text class="subtitle" x="920" y="204">Expose env vars</text>
+
+  <!-- Public API -->
+  <rect class="node" x="820" y="230" width="200" height="60" />
+  <text class="label" x="920" y="267">Public API</text>
+
+  <!-- Flow arrows -->
+  <line class="arrow" x1="200" y1="125" x2="230" y2="125" />
+  <line class="arrow" x1="390" y1="125" x2="420" y2="75" />
+  <line class="arrow" x1="390" y1="125" x2="420" y2="185" />
+  <line class="arrow" x1="590" y1="75" x2="620" y2="125" />
+  <line class="arrow" x1="590" y1="185" x2="620" y2="125" />
+  <line class="arrow" x1="790" y1="125" x2="820" y2="75" />
+
+  <!-- Secret manager to Cloud Run -->
+  <line class="arrow" x1="920" y1="140" x2="920" y2="120" />
+
+  <!-- Cloud Run to Public API -->
+  <line class="arrow" x1="920" y1="120" x2="920" y2="230" />
+</svg>
