@@ -1,4 +1,6 @@
 import types
+from datetime import datetime
+
 import pytest
 
 
@@ -114,6 +116,29 @@ def agent_module(monkeypatch, stub_settings):
         llm_with_tools = self.model.bind_tools(self.bindtools)
         return FakeGraph(llm_with_tools)
 
+    class FakeCursor:
+        def __init__(self, records):
+            self._records = list(records)
+
+        def sort(self, field, direction):
+            reverse = direction in (-1, "DESC")
+            self._records.sort(
+                key=lambda record: record.get(field) or datetime.min,
+                reverse=reverse,
+            )
+            return self
+
+        def skip(self, count):
+            self._records = self._records[count:]
+            return self
+
+        def limit(self, count):
+            self._records = self._records[:count]
+            return self
+
+        def __iter__(self):
+            return iter(self._records)
+
     class FakeCollection:
         def __init__(self):
             self.records = []
@@ -122,12 +147,12 @@ def agent_module(monkeypatch, stub_settings):
             self.records.append(document)
 
         def find(self, query):
-            return [
+            return FakeCursor(
                 record
                 for record in self.records
                 if record.get("user_id") == query.get("user_id")
                 and record.get("session_id") == query.get("session_id")
-            ]
+            )
 
     class FakeDatabase:
         def __init__(self):
