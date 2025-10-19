@@ -11,21 +11,21 @@ class GroqConfig(BaseModel):
 
 class EmbeddingConfig(BaseModel):
     token: str = os.getenv("HF_TOKEN", "")
-    model: str = os.getenv("HF_MODEL", "")
+    model: str = os.getenv("HF_MODEL", "BAAI/bge-m3")
     timeout_s: int = int(os.getenv("EMBEDDING_TIMEOUT_S", "300"))
 
 class MongodbConfig(BaseModel):
     uri: str = os.getenv("MONGODB_URI", "")
-    database: str = os.getenv("MONGODB_DATABASE", "")
-    collection: str = os.getenv("MONGODB_COLLECTION", "")
+    database: str = os.getenv("MONGODB_DATABASE", "orion")
+    collection: str = os.getenv("MONGODB_COLLECTION", "chat_history")
     history_size: int = int(os.getenv("MONGODB_HISTORY_SIZE", "6"))
     history_collection: str = os.getenv("MONGODB_HISTORY_COLLECTION", "histories")
 
 class QdrantConfig(BaseModel):
-    url: str = os.getenv("QDRANT_URL", "")
+    url: str = os.getenv("QDRANT_URL", "https://657e9ff8-daa0-4003-bf76-c531e697932d.europe-west3-0.gcp.cloud.qdrant.io:6333")
     api_key: str = os.getenv("QDRANT_API_KEY", "")
-    collection: str = os.getenv("QDRANT_COLLECTION", "")
-    top_k: int = int(os.getenv("QDRANT_TOP_K", "6"))
+    collection: str = os.getenv("QDRANT_COLLECTION", "knowledge")
+    top_k: int = int(os.getenv("QDRANT_TOP_K", "10"))
     chunk_size: int = int(os.getenv("QDRANT_CHUNK_SIZE", "1000"))
     chunk_overlap: int = int(os.getenv("QDRANT_CHUNK_OVERLAP", "100"))
 
