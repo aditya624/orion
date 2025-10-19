@@ -14,6 +14,7 @@ def stub_settings():
             database="test_db",
             collection="chat_history",
             history_size=5,
+            history_collection="histories",
         ),
     )
 
@@ -21,6 +22,7 @@ def stub_settings():
 @pytest.fixture
 def agent_module(monkeypatch, stub_settings):
     from orion.agent import agent as agent_module
+    from orion.agent import history as history_module
 
     class FakeLangfuse:
         def __init__(self, *args, **kwargs):
@@ -106,11 +108,48 @@ def agent_module(monkeypatch, stub_settings):
 
         def invoke(self, state, config):
             self.calls.append((state, config))
-            return {"messages": [types.SimpleNamespace(content="graph-answer")]}
+            return {"messages": [types.SimpleNamespace(content="graph-answer")]} 
 
     def fake_graph_builder(self):
         llm_with_tools = self.model.bind_tools(self.bindtools)
         return FakeGraph(llm_with_tools)
+
+    class FakeCollection:
+        def __init__(self):
+            self.records = []
+
+        def insert_one(self, document):
+            self.records.append(document)
+
+        def find(self, query):
+            return [
+                record
+                for record in self.records
+                if record.get("user_id") == query.get("user_id")
+                and record.get("session_id") == query.get("session_id")
+            ]
+
+    class FakeDatabase:
+        def __init__(self):
+            self.collections = {}
+
+        def __getitem__(self, name):
+            if name not in self.collections:
+                self.collections[name] = FakeCollection()
+            return self.collections[name]
+
+    class FakeMongoClient:
+        instances = []
+
+        def __init__(self, uri):
+            self.uri = uri
+            self.databases = {}
+            self.__class__.instances.append(self)
+
+        def __getitem__(self, name):
+            if name not in self.databases:
+                self.databases[name] = FakeDatabase()
+            return self.databases[name]
 
     monkeypatch.setattr(agent_module, "Langfuse", FakeLangfuse)
     monkeypatch.setattr(agent_module, "Knowledge", FakeKnowledge)
@@ -121,6 +160,11 @@ def agent_module(monkeypatch, stub_settings):
     monkeypatch.setattr(agent_module, "get_args_schema", fake_get_args_schema)
     monkeypatch.setattr(agent_module, "settings", stub_settings)
     monkeypatch.setattr(agent_module.Agent, "graph_builder", fake_graph_builder)
+    monkeypatch.setattr(history_module, "settings", stub_settings)
+    monkeypatch.setattr(history_module, "MongoClient", FakeMongoClient)
+
+    agent_module.HistoryStore = history_module.HistoryStore
+    agent_module._history_module = history_module
 
     return agent_module
 
@@ -142,8 +186,9 @@ def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
     agent = agent_module.Agent()
     FakeHistory = agent_module.MongoDBChatMessageHistory
     FakeHistory.instances.clear()
+    agent_module._history_module.MongoClient.instances.clear()
 
-    answer = agent.generate("What is Orion?", session_id="session-123")
+    answer = agent.generate("What is Orion?", session_id="session-123", user_id="user-42")
 
     assert answer == "graph-answer"
     graph = agent.graph
@@ -158,3 +203,42 @@ def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
         ("user", "What is Orion?"),
         ("ai", "graph-answer"),
     ]
+
+    mongo_client = agent_module._history_module.MongoClient.instances[-1]
+    database = mongo_client.databases[agent_module.settings.mongodb.database]
+    collection = database.collections[agent_module.settings.mongodb.history_collection]
+    assert len(collection.records) == 1
+    document = collection.records[0]
+    assert document["user_id"] == "user-42"
+    assert document["session_id"] == "session-123"
+    assert document["input"] == "What is Orion?"
+    assert document["answer"] == "graph-answer"
+    assert "created_at" in document
+
+
+def test_agent_get_history_filters_by_user_and_session(agent_module):
+    agent = agent_module.Agent()
+    agent_module._history_module.MongoClient.instances.clear()
+
+    answer = agent.generate("Question 1", session_id="session-1", user_id="user-1")
+    assert answer == "graph-answer"
+    agent.generate("Question 2", session_id="session-1", user_id="user-1")
+    agent.generate("Question 3", session_id="session-1", user_id="user-2")
+
+    history = agent.get_history(user_id="user-1", session_id="session-1")
+    assert len(history) == 2
+    assert [entry["input"] for entry in history] == ["Question 2", "Question 1"]
+    for entry in history:
+        assert entry["user_id"] == "user-1"
+        assert entry["session_id"] == "session-1"
+        assert entry["answer"] == "graph-answer"
+        assert entry["created_at"] is not None
+
+    oldest_first = agent.get_history(user_id="user-1", session_id="session-1", order="ASC")
+    assert [entry["input"] for entry in oldest_first] == ["Question 1", "Question 2"]
+
+
+def test_agent_get_history_rejects_invalid_order(agent_module):
+    agent = agent_module.Agent()
+    with pytest.raises(ValueError):
+        agent.get_history(user_id="user-1", session_id="session-1", order="invalid")

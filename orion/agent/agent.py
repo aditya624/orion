@@ -2,6 +2,7 @@ from langchain_groq import ChatGroq
 from orion.config import settings
 from orion.agent.helper import load_prompt, get_date_and_time, State, get_args_schema
 from orion.tools.knowledge import Knowledge
+from orion.agent.history import HistoryStore
 
 from langchain_mongodb.chat_message_histories import MongoDBChatMessageHistory
 from langchain.tools import StructuredTool
@@ -18,7 +19,7 @@ class Agent(object):
     def __init__(self):
         self.langfuse = Langfuse()
         self.prompt = load_prompt(settings, self.langfuse)
-        
+
         self.model = ChatGroq(
             model=self.prompt["agent"]["config"]["model"],
             api_key=settings.groq.api_key
@@ -28,6 +29,7 @@ class Agent(object):
         self.bindtools = self.get_tools()
 
         self.graph = self.graph_builder()
+        self.history_store = HistoryStore()
 
     def get_tools(self):
         args_schema = get_args_schema(self.prompt)
@@ -93,14 +95,17 @@ class Agent(object):
 
         return graph
 
-    def generate(self, input, session_id, extra_callbacks=[]):
+    def get_history(self, user_id, session_id, order="DESC"):
+        return self.history_store.list(user_id=user_id, session_id=session_id, order=order)
+
+    def generate(self, input, session_id, user_id, extra_callbacks=[]):
         answer = self.graph.invoke(
             {
                 "messages": [("human", input)],
                 "session_id": session_id,
             },
             {
-                "callbacks": [CallbackHandler()]
+                "callbacks": [CallbackHandler()] 
                 + extra_callbacks,
             },
         )["messages"][-1].content
@@ -108,4 +113,6 @@ class Agent(object):
         memory = self.get_memory(session_id=session_id, history_size=-1)
         memory.add_user_message(input)
         memory.add_ai_message(answer)
+        self.history_store.save(user_id=user_id, session_id=session_id, input_text=input, answer=answer)
+
         return answer
