@@ -25,7 +25,7 @@ class Agent(object):
             api_key=settings.groq.api_key
         )
 
-        self.knowledge = Knowledge()
+        self.knowledge = Knowledge(prompt=self.prompt)
         self.bindtools = self.get_tools()
 
         self.graph = self.graph_builder()
@@ -91,7 +91,7 @@ class Agent(object):
         graph_builder.add_conditional_edges("chatbot", tools_condition)
         graph_builder.add_edge("tools", "chatbot")
         graph_builder.set_entry_point("chatbot")
-        graph = graph_builder.compile()
+        graph = graph_builder.compile().with_config({"run_name": "agent"})
 
         return graph
 
