@@ -6,6 +6,9 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 
 Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize**, supplying the `TOKEN` shared via email to access the protected endpoints.
 
+> ⚠️ **Note:** The first access might take a little longer to respond because Orion is deployed with Cloud Run’s *request-balanced* system.  
+> This means the deployment automatically **scales down to zero** when idle and **warms up again** upon new requests.
+
 ### 🔄 Development-to-Production Flow
 
 <p align="center">
