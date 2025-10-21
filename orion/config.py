@@ -28,6 +28,7 @@ class QdrantConfig(BaseModel):
     top_k: int = int(os.getenv("QDRANT_TOP_K", "10"))
     chunk_size: int = int(os.getenv("QDRANT_CHUNK_SIZE", "1000"))
     chunk_overlap: int = int(os.getenv("QDRANT_CHUNK_OVERLAP", "100"))
+    breakpoint_threshold_amount: int = int(os.getenv("QDRANT_BREAKPOINT_THRESHOLD_AMOUNT", "80"))
 
 class LangfuseConfig(BaseModel):
     system_prompt_name: str = os.getenv("LANGFUSE_SYSTEM_PROMPT_NAME", "agent")
@@ -35,6 +36,9 @@ class LangfuseConfig(BaseModel):
 
     knowledge_prompt_name: str = os.getenv("LANGFUSE_KNOWLEDGE_PROMPT_NAME", "knowledge")
     knowledge_prompt_version: str = os.getenv("LANGFUSE_KNOWLEDGE_PROMPT_VERSION", None)
+
+    summary_prompt_name: str = os.getenv("LANGFUSE_SUMMARY_PROMPT_NAME", "summary")
+    summary_prompt_version: str = os.getenv("LANGFUSE_SUMMARY_PROMPT_VERSION", None)
 
 class Settings(BaseModel):
     app_name: str = os.getenv("APP_NAME", "orion")

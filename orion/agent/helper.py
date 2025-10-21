@@ -49,6 +49,11 @@ def load_prompt(settings: Settings, langfuse: Langfuse):
         version=settings.langfuse.knowledge_prompt_version
     )
 
+    chain_prompt_loader = langfuse.get_prompt(
+        name=settings.langfuse.summary_prompt_name,
+        version=settings.langfuse.summary_prompt_version
+    )
+
     prompt = {
         "agent": {
             "langfuse_prompt": system_prompt_loader,
@@ -59,6 +64,11 @@ def load_prompt(settings: Settings, langfuse: Langfuse):
             "langfuse_prompt": knowledge_loader,
             "description": knowledge_loader.get_langchain_prompt(),
             "config": knowledge_loader.config
+        },
+        "chain": {
+            "langfuse_prompt": chain_prompt_loader,
+            "prompt": chain_prompt_loader.get_langchain_prompt(),
+            "config": chain_prompt_loader.config
         }
     }
 

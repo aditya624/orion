@@ -1,3 +1,4 @@
+import re
 from langchain_groq import ChatGroq
 from orion.config import settings
 from orion.agent.helper import load_prompt, get_date_and_time, State, get_args_schema
@@ -25,7 +26,7 @@ class Agent(object):
             api_key=settings.groq.api_key
         )
 
-        self.knowledge = Knowledge()
+        self.knowledge = Knowledge(prompt=self.prompt)
         self.bindtools = self.get_tools()
 
         self.graph = self.graph_builder()
@@ -91,7 +92,7 @@ class Agent(object):
         graph_builder.add_conditional_edges("chatbot", tools_condition)
         graph_builder.add_edge("tools", "chatbot")
         graph_builder.set_entry_point("chatbot")
-        graph = graph_builder.compile()
+        graph = graph_builder.compile().with_config({"run_name": "agent"})
 
         return graph
 
@@ -115,7 +116,7 @@ class Agent(object):
                 + extra_callbacks,
             },
         )["messages"][-1].content
-
+        answer = re.sub(r"<think>.*?</think>", "", answer.strip(), flags=re.DOTALL)
         memory = self.get_memory(session_id=session_id, history_size=-1)
         memory.add_user_message(input)
         memory.add_ai_message(answer)
