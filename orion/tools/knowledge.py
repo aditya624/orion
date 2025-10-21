@@ -22,7 +22,6 @@ class Knowledge(object):
         self.model = ChatGroq(
             model=self.prompt["chain"]["config"]["model"],
             api_key=settings.groq.api_key,
-            temperature=0.7
         )
         self.embeddings = HuggingFaceEndpointEmbeddings(
             provider="hf-inference",

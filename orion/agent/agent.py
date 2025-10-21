@@ -1,3 +1,4 @@
+import re
 from langchain_groq import ChatGroq
 from orion.config import settings
 from orion.agent.helper import load_prompt, get_date_and_time, State, get_args_schema
@@ -115,7 +116,7 @@ class Agent(object):
                 + extra_callbacks,
             },
         )["messages"][-1].content
-
+        answer = re.sub(r"<think>.*?</think>", "", answer.strip(), flags=re.DOTALL)
         memory = self.get_memory(session_id=session_id, history_size=-1)
         memory.add_user_message(input)
         memory.add_ai_message(answer)
