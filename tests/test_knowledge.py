@@ -1,6 +1,30 @@
+import sys
+import types
+
 import pytest
 
 from langchain_core.documents import Document
+
+
+# Provide a lightweight stub for the optional dependency used in Knowledge.
+_semantic_module = types.ModuleType("langchain_experimental.text_splitter")
+
+
+class _SemanticChunkerStub:
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.calls = []
+        self.return_value = []
+
+    def split_documents(self, docs):
+        self.calls.append(docs)
+        return self.return_value
+
+
+_semantic_module.SemanticChunker = _SemanticChunkerStub
+sys.modules.setdefault("langchain_experimental", types.ModuleType("langchain_experimental"))
+sys.modules["langchain_experimental.text_splitter"] = _semantic_module
 
 from orion.tools.knowledge import Knowledge
 from orion.config import settings
@@ -53,6 +77,7 @@ def knowledge(monkeypatch):
         "orion.tools.knowledge.HuggingFaceEndpointEmbeddings",
         lambda **_: object(),
     )
+    monkeypatch.setattr("orion.tools.knowledge.ChatGroq", lambda **_: object())
 
     class DummyQdrantVectorStore:
         @classmethod
@@ -61,9 +86,21 @@ def knowledge(monkeypatch):
 
     monkeypatch.setattr("orion.tools.knowledge.QdrantVectorStore", DummyQdrantVectorStore)
     monkeypatch.setattr(
-        "orion.tools.knowledge.RecursiveCharacterTextSplitter",
-        lambda **_: splitter,
+        "orion.tools.knowledge.SemanticChunker",
+        lambda *args, **kwargs: splitter,
     )
+
+    class DummyChain:
+        def __init__(self):
+            self.calls = []
+
+        def invoke(self, inputs, config=None):
+            self.calls.append((inputs, config))
+            return "dummy summary"
+
+    dummy_chain = DummyChain()
+
+    monkeypatch.setattr("orion.tools.knowledge.Knowledge.build_chain", lambda self: dummy_chain)
 
     loader_calls = []
 
@@ -83,7 +120,14 @@ def knowledge(monkeypatch):
 
     monkeypatch.setattr("orion.tools.knowledge.WebBaseLoader", loader_factory)
 
-    return Knowledge(), vectorstore, splitter, loader_calls
+    prompt = {
+        "chain": {
+            "config": {"model": "dummy-model"},
+            "prompt": "{input}",
+        }
+    }
+
+    return Knowledge(prompt=prompt), vectorstore, splitter, loader_calls
 
 
 def test_query_builds_context(knowledge):

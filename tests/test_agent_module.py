@@ -31,7 +31,8 @@ def agent_module(monkeypatch, stub_settings):
             pass
 
     class FakeKnowledge:
-        def __init__(self):
+        def __init__(self, prompt=None):
+            self.prompt = prompt
             self.calls = []
 
         def query(self, *args, **kwargs):
