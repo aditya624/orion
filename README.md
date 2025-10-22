@@ -15,8 +15,6 @@ Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https:/
   <img src="docs/assets/populix-development-process.png" alt="Development to production workflow showing development, GitHub, CI, Docker Hub, Cloud Run, Secret Manager, and Public API" width="820" />
 </p>
 
-This flow illustrates how changes ship safely to users:
-
 1. **Development Process** — Features are planned, implemented, and reviewed locally before opening a pull request.
 2. **Push / Merge to GitHub** — Once approved, the merge triggers the CI pipeline on the hosted repository.
 3. **CI: Test · Build · Push** — Automated checks run, the Docker image is built, and the artifact is pushed to Docker Hub.
