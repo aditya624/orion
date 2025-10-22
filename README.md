@@ -268,6 +268,26 @@ curl -X POST http://localhost:8000/v1/knowledge/upload-link \
       }'
 ```
 
+#### Upload Response Example
+```json
+{
+  "skipped": [
+    "https://info.populix.co/"
+  ],
+  "processed": [
+    "https://info.populix.co/solutions/market-research",
+    "https://info.populix.co/solutions/policy-society-research",
+    "https://info.populix.co/insight-hub"
+  ],
+  "counts": {
+    "skipped": 1,
+    "processed": 3,
+    "total_input": 4,
+    "total_unique": 4
+  }
+}
+```
+
 **Request fields**
 
 | Field | Type | Description |
