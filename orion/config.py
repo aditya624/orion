@@ -24,7 +24,7 @@ class MongodbConfig(BaseModel):
 class QdrantConfig(BaseModel):
     url: str = os.getenv("QDRANT_URL", "https://657e9ff8-daa0-4003-bf76-c531e697932d.europe-west3-0.gcp.cloud.qdrant.io:6333")
     api_key: str = os.getenv("QDRANT_API_KEY", "")
-    collection: str = os.getenv("QDRANT_COLLECTION", "knowledge")
+    collection: str = os.getenv("QDRANT_COLLECTION", "internal_knowledge")
     top_k: int = int(os.getenv("QDRANT_TOP_K", "10"))
     chunk_size: int = int(os.getenv("QDRANT_CHUNK_SIZE", "1000"))
     chunk_overlap: int = int(os.getenv("QDRANT_CHUNK_OVERLAP", "100"))

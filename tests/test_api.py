@@ -40,6 +40,7 @@ def api_client(monkeypatch, stub_settings):
         def __init__(self):
             self.calls = []
             self.history_calls = []
+            self.knowledge = FakeKnowledge()
 
         def generate(self, input, session_id, user_id, extra_callbacks=None):
             self.calls.append((input, session_id, user_id))
