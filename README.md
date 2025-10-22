@@ -6,13 +6,14 @@ Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learnin
 
 Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize**, supplying the `TOKEN` shared via email to access the protected endpoints.
 
+> ⚠️ **Note:** The first access might take a little longer to respond because Orion is deployed with Cloud Run’s *request-balanced* system.  
+> This means the deployment automatically **scales down to zero** when idle and **warms up again** upon new requests.
+
 ### 🔄 Development-to-Production Flow
 
 <p align="center">
   <img src="docs/assets/populix-development-process.png" alt="Development to production workflow showing development, GitHub, CI, Docker Hub, Cloud Run, Secret Manager, and Public API" width="820" />
 </p>
-
-This flow illustrates how changes ship safely to users:
 
 1. **Development Process** — Features are planned, implemented, and reviewed locally before opening a pull request.
 2. **Push / Merge to GitHub** — Once approved, the merge triggers the CI pipeline on the hosted repository.
@@ -50,7 +51,41 @@ This flow illustrates how changes ship safely to users:
 | **Langfuse Observability** | Tracks prompts, traces, and evaluation metrics for debugging and governance. |
 | **Groq + Qwen 3 32B** | Groq's accelerated inference host runs the open-source Qwen 3 32B model that ultimately drafts the natural-language answer. |
 
-> 🖼️ The layout above mirrors the provided high-level architecture diagram, with the Orion service orchestrating data flow between retrieval, memory, observability, and Groq-hosted LLM components.
+### 🧩 Knowledge Ingestion Flow
+
+<p align="center">
+  <img src="docs/assets/populix-ingest.png" alt="Ingest Document" width="720" />
+</p>
+
+1. **Client Upload Trigger** — A client sends a request to the `/upload-link` endpoint to register a new knowledge source.
+2. **Web Crawling** — Orion fetches and crawls the referenced webpage, capturing its contents as raw text.
+3. **LLM Cleaning (Qwen 3 32B)** — The raw text is normalized and rewritten by the Qwen 3 32B model so the content is structured and easy to chunk.
+4. **Chunking** — The polished text is segmented into retrieval-friendly chunks.
+5. **Vector Store Insertion** — Each chunk is embedded and persisted into the Qdrant vector database to make it searchable for the agent.
+
+> 🗒️ **Knowledge Sources Uploaded to Date**
+>
+> - https://info.populix.co/
+> - https://info.populix.co/solutions/market-research
+> - https://info.populix.co/solutions/policy-society-research
+> - https://info.populix.co/insight-hub
+> - https://info.populix.co/solutions/popsurvey
+> - https://info.populix.co/solutions/respondent-only
+> - https://info.populix.co/industries
+> - https://info.populix.co/industries/automotive
+> - https://info.populix.co/industries/venture-capital-and-investments
+> - https://info.populix.co/industries/fast-moving-consumer-goods
+> - https://info.populix.co/industries/professional-services
+> - https://info.populix.co/industries/information-and-computer-technology
+> - https://info.populix.co/industries/banking
+> - https://info.populix.co/industries/goverment-institutions
+> - https://info.populix.co/industries/non-profit-organizations
+> - https://info.populix.co/industries/political-organizations
+> - https://info.populix.co/industries/media-communications
+> - https://info.populix.co/data-hub
+> - https://info.populix.co/panel
+> - https://info.populix.co/articles/faq/
+> - https://info.populix.co/indonesia-masters-university-rankings
 
 ---
 
@@ -118,6 +153,7 @@ Requests without a matching token receive `401 Unauthorized` responses.
 #### Generate Request Example
 ```bash
 TOKEN="<your-api-token>"
+# Replace http://localhost:8000 with https://orion-53063754153.asia-southeast2.run.app if you want to call the public Cloud Run deployment.
 curl -X POST http://localhost:8000/v1/agent/generate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -128,6 +164,14 @@ curl -X POST http://localhost:8000/v1/agent/generate \
       }'
 ```
 
+**Request fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `input` | `string` | Natural-language question that the agent should answer. |
+| `session_id` | `string` | Conversation identifier so follow-up questions reuse previous context. |
+| `user_id` | `string` | Unique identifier for the caller; partitions history storage per user. |
+
 #### Generate Response Example
 ```json
 {
@@ -137,9 +181,18 @@ curl -X POST http://localhost:8000/v1/agent/generate \
 }
 ```
 
+**Response fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `answer` | `string` | Model-generated response grounded in the Populix knowledge base. |
+| `session_id` | `string` | Echoes the conversation identifier supplied in the request. |
+| `latency_ms` | `number` | End-to-end processing time in milliseconds for the request. |
+
 #### History Request Example
 ```bash
 TOKEN="<your-api-token>"
+# Replace http://localhost:8000 with https://orion-53063754153.asia-southeast2.run.app if you want to call the public Cloud Run deployment.
 curl -G http://localhost:8000/v1/agent/history \
   -H "Authorization: Bearer $TOKEN" \
   --data-urlencode "user_id=demo-user" \
@@ -148,6 +201,16 @@ curl -G http://localhost:8000/v1/agent/history \
   --data-urlencode "offset=0" \
   --data-urlencode "limit=20"
 ```
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `user_id` | `string` | Required identifier of the user whose chat history to fetch. |
+| `session_id` | `string` | Required conversation thread within the user's history. |
+| `order` | `"ASC" \| "DESC"` | Sort direction for the results; defaults to newest first (`DESC`). |
+| `offset` | `number` | Number of records to skip for pagination; defaults to `0`. |
+| `limit` | `number` | Maximum number of history entries to return; defaults to `20`. |
 
 #### History Response Example
 
@@ -165,6 +228,22 @@ curl -G http://localhost:8000/v1/agent/history \
 }
 ```
 
+**Response fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `histories` | `object[]` | Array of prior question/answer pairs for the requested user and session. Each entry has the fields below. |
+
+**History entry object**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `user_id` | `string` | User identifier associated with the conversation turn. |
+| `session_id` | `string` | Session identifier grouping the turn into a chat thread. |
+| `input` | `string` | Original user question captured for that turn. |
+| `answer` | `string` | Agent response that was returned for the question. |
+| `created_at` | `string \| null` | ISO 8601 timestamp when the turn was stored (may be `null` if unavailable). |
+
 ### Knowledge Service (`/v1/knowledge`)
 | Method | Path | Description |
 |--------|------|-------------|
@@ -174,45 +253,101 @@ curl -G http://localhost:8000/v1/agent/history \
 #### Upload Request Example
 ```bash
 TOKEN="<your-api-token>"
+# Replace http://localhost:8000 with https://orion-53063754153.asia-southeast2.run.app if you want to call the public Cloud Run deployment.
 curl -X POST http://localhost:8000/v1/knowledge/upload-link \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{ "links": ["https://populix.co/insights"] }'
+  -d '{
+        "links": [
+          "https://info.populix.co/",
+          "https://info.populix.co/solutions/market-research",
+          "https://info.populix.co/solutions/policy-society-research",
+          "https://info.populix.co/insight-hub"
+        ]
+      }'
 ```
 
----
-
-## 🗄️ Data & Memory Strategy
-* **Retrieval-Augmented Generation (RAG):** `Knowledge.query` performs similarity search over Qdrant and injects rich context (title, URL, chunk) into the agent prompt.
-* **Conversation Memory:** `MongoDBChatMessageHistory` maintains turn-by-turn chat context to support follow-up questions.
-* **Analytics:** Langfuse callbacks trace every request, providing observability for debugging and product analytics.
-
----
-
-## 🧪 Testing & Tooling
-Run the test suite (integration-safe) with:
-```bash
-pytest
+#### Upload Response Example
+```json
+{
+  "skipped": [
+    "https://info.populix.co/"
+  ],
+  "processed": [
+    "https://info.populix.co/solutions/market-research",
+    "https://info.populix.co/solutions/policy-society-research",
+    "https://info.populix.co/insight-hub"
+  ],
+  "counts": {
+    "skipped": 1,
+    "processed": 3,
+    "total_input": 4,
+    "total_unique": 4
+  }
+}
 ```
-Additional recommended checks:
-```bash
-ruff check .
-uvicorn orion.main:app --reload  # local smoke test
+
+**Request fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `links` | `string[]` | Array of absolute URLs to ingest. Duplicates are automatically removed before processing. |
+
+#### Upload Response Example
+```json
+{
+  "skipped": [
+    "https://info.populix.co/"
+  ],
+  "processed": [
+    "https://info.populix.co/solutions/market-research",
+    "https://info.populix.co/solutions/policy-society-research",
+    "https://info.populix.co/insight-hub"
+  ],
+  "counts": {
+    "skipped": 1,
+    "processed": 3,
+    "total_input": 4,
+    "total_unique": 4
+  }
+}
 ```
 
----
+**Response fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skipped` | `string[]` | Links that were already present in Qdrant and therefore not reprocessed. |
+| `processed` | `string[]` | Newly ingested links that completed crawling, cleaning, chunking, and embedding. |
+| `counts` | `object` | Summary of how many links were skipped or processed. Contains the keys below. |
+
+**`counts` object**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skipped` | `number` | Count of links returned in the top-level `skipped` array. |
+| `processed` | `number` | Count of links returned in the top-level `processed` array. |
+| `total_input` | `number` | Total number of links received in the original request payload (including duplicates). |
+| `total_unique` | `number` | Number of distinct links evaluated after duplicate removal. |
 
 ## 🗂️ Project Structure
 ```
 orion/
+├── .github/
+│   └── workflows/           # CI configuration for linting, testing, and deploys
+├── dockerfile               # Container image definition for Cloud Run
+├── docs/
+│   └── assets/              # Architecture & process diagrams
 ├── orion/
-│   ├── api/                 # FastAPI routers & auth
-│   ├── agent/               # LangGraph agent, tools, memory, history store
-│   ├── tools/knowledge.py   # Qdrant + Hugging Face ingestion/query utilities
-│   ├── main.py              # FastAPI app factory + middleware
-│   └── config.py            # Pydantic settings pulled from env
-├── scripts/                 # (reserved for automation helpers)
-├── tests/                   # Pytest suites
+│   ├── __init__.py
+│   ├── agent/               # LangGraph agent, state, and tool orchestration
+│   ├── api/                 # FastAPI routers, dependencies, and auth
+│   ├── config.py            # Pydantic settings pulled from the environment
+│   ├── main.py              # FastAPI application factory & middleware
+│   └── tools/               # Knowledge ingestion/query utilities
+├── pyproject.toml           # Poetry/PEP 621 metadata, dependencies, and tooling config
+├── scripts/                 # Helper scripts (e.g., init.sh for local setup)
+├── tests/                   # Pytest-based API & ingestion tests
 └── README.md                # You are here ✨
 ```
 
