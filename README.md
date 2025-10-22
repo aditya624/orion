@@ -55,6 +55,42 @@ This flow illustrates how changes ship safely to users:
 
 > 🖼️ The layout above mirrors the provided high-level architecture diagram, with the Orion service orchestrating data flow between retrieval, memory, observability, and Groq-hosted LLM components.
 
+### 🧩 Knowledge Ingestion Flow
+
+<p align="center">
+ <!-- Reserved space for future knowledge ingestion flow diagram -->
+</p>
+
+1. **Client Upload Trigger** — A client sends a request to the `/upload-link` endpoint to register a new knowledge source.
+2. **Web Crawling** — Orion fetches and crawls the referenced webpage, capturing its contents as raw text.
+3. **LLM Cleaning (Qwen 3 32B)** — The raw text is normalized and rewritten by the Qwen 3 32B model so the content is structured and easy to chunk.
+4. **Chunking** — The polished text is segmented into retrieval-friendly chunks.
+5. **Vector Store Insertion** — Each chunk is embedded and persisted into the Qdrant vector database to make it searchable for the agent.
+
+> 🗒️ **Knowledge Sources Uploaded to Date**
+>
+> - https://info.populix.co/
+> - https://info.populix.co/solutions/market-research
+> - https://info.populix.co/solutions/policy-society-research
+> - https://info.populix.co/insight-hub
+> - https://info.populix.co/solutions/popsurvey
+> - https://info.populix.co/solutions/respondent-only
+> - https://info.populix.co/industries
+> - https://info.populix.co/industries/automotive
+> - https://info.populix.co/industries/venture-capital-and-investments
+> - https://info.populix.co/industries/fast-moving-consumer-goods
+> - https://info.populix.co/industries/professional-services
+> - https://info.populix.co/industries/information-and-computer-technology
+> - https://info.populix.co/industries/banking
+> - https://info.populix.co/industries/goverment-institutions
+> - https://info.populix.co/industries/non-profit-organizations
+> - https://info.populix.co/industries/political-organizations
+> - https://info.populix.co/industries/media-communications
+> - https://info.populix.co/data-hub
+> - https://info.populix.co/panel
+> - https://info.populix.co/articles/faq/
+> - https://info.populix.co/indonesia-masters-university-rankings
+
 ---
 
 ## 🚀 Quickstart
@@ -180,7 +216,34 @@ TOKEN="<your-api-token>"
 curl -X POST http://localhost:8000/v1/knowledge/upload-link \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{ "links": ["https://populix.co/insights"] }'
+  -d '{
+        "links": [
+          "https://info.populix.co/",
+          "https://info.populix.co/solutions/market-research",
+          "https://info.populix.co/solutions/policy-society-research",
+          "https://info.populix.co/insight-hub"
+        ]
+      }'
+```
+
+#### Upload Response Example
+```json
+{
+  "skipped": [
+    "https://info.populix.co/"
+  ],
+  "processed": [
+    "https://info.populix.co/solutions/market-research",
+    "https://info.populix.co/solutions/policy-society-research",
+    "https://info.populix.co/insight-hub"
+  ],
+  "counts": {
+    "skipped": 1,
+    "processed": 3,
+    "total_input": 4,
+    "total_unique": 4
+  }
+}
 ```
 
 ---
