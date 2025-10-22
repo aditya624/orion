@@ -1,6 +1,6 @@
 [project]
 name = "orion"
-version = "0.1.14"
+version = "0.1.15"
 description = ""
 authors = [
     {name = "aditya624",email = "adityaadit677@gmail.com"}
@@ -21,7 +21,8 @@ dependencies = [
     "langchain-mongodb (>=0.7.1,<0.8.0)",
     "pytz (>=2025.2,<2026.0)",
     "langgraph (>=1.0.0,<2.0.0)",
-    "langchain-experimental (>=0.3.4,<0.4.0)"
+    "langchain-experimental (>=0.3.4,<0.4.0)",
+    "beautifulsoup4 (>=4.14.2,<5.0.0)"
 ]
 
 
