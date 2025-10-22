@@ -3,12 +3,14 @@ from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, HttpUrl
 
+from orion.agent.agent import Agent
 from orion.tools.knowledge import Knowledge 
 from orion.logging import logger
 
 router = APIRouter(prefix="/v1/knowledge", tags=["knowledge"])
 
-_knowledge = Knowledge()
+_agent = Agent()
+_knowledge = Knowledge(prompt=_agent.prompt)
 
 class UploadLinksRequest(BaseModel):
     links: List[HttpUrl] = Field(..., description="List URL")
