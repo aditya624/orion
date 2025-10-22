@@ -53,12 +53,10 @@ This flow illustrates how changes ship safely to users:
 | **Langfuse Observability** | Tracks prompts, traces, and evaluation metrics for debugging and governance. |
 | **Groq + Qwen 3 32B** | Groq's accelerated inference host runs the open-source Qwen 3 32B model that ultimately drafts the natural-language answer. |
 
-> 🖼️ The layout above mirrors the provided high-level architecture diagram, with the Orion service orchestrating data flow between retrieval, memory, observability, and Groq-hosted LLM components.
-
 ### 🧩 Knowledge Ingestion Flow
 
 <p align="center">
- <!-- Reserved space for future knowledge ingestion flow diagram -->
+  <img src="docs/assets/populix-ingest.png" alt="Ingest Document" width="720" />
 </p>
 
 1. **Client Upload Trigger** — A client sends a request to the `/upload-link` endpoint to register a new knowledge source.
@@ -157,6 +155,7 @@ Requests without a matching token receive `401 Unauthorized` responses.
 #### Generate Request Example
 ```bash
 TOKEN="<your-api-token>"
+# Replace http://localhost:8000 with https://orion-53063754153.asia-southeast2.run.app if you want to call the public Cloud Run deployment.
 curl -X POST http://localhost:8000/v1/agent/generate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -195,6 +194,7 @@ curl -X POST http://localhost:8000/v1/agent/generate \
 #### History Request Example
 ```bash
 TOKEN="<your-api-token>"
+# Replace http://localhost:8000 with https://orion-53063754153.asia-southeast2.run.app if you want to call the public Cloud Run deployment.
 curl -G http://localhost:8000/v1/agent/history \
   -H "Authorization: Bearer $TOKEN" \
   --data-urlencode "user_id=demo-user" \
@@ -255,6 +255,7 @@ curl -G http://localhost:8000/v1/agent/history \
 #### Upload Request Example
 ```bash
 TOKEN="<your-api-token>"
+# Replace http://localhost:8000 with https://orion-53063754153.asia-southeast2.run.app if you want to call the public Cloud Run deployment.
 curl -X POST http://localhost:8000/v1/knowledge/upload-link \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
