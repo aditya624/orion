@@ -37,6 +37,10 @@ class Knowledge(object):
             collection_name=settings.qdrant.collection
         )
 
+        self.retriever = self.vectorstore.as_retriever(
+            search_kwargs={"k": settings.qdrant.top_k}
+        )
+
         self.semantic_splitter = SemanticChunker(
             self.embeddings, breakpoint_threshold_type="percentile", breakpoint_threshold_amount=80
         )
@@ -56,7 +60,7 @@ class Knowledge(object):
         return chain
 
     def query(self, query):
-        docs = self.vectorstore.similarity_search(query, k=settings.qdrant.top_k)
+        docs = self.retriever.invoke(query, config={"callbacks":[CallbackHandler()]})
         context = ""
         for doc in docs:
             page_content = doc.page_content
