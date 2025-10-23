@@ -67,6 +67,22 @@ class DummyVectorStore:
     def add_documents(self, docs):
         self.add_documents_calls.append(docs)
 
+    def as_retriever(self, search_kwargs=None):
+        search_kwargs = search_kwargs or {}
+        vectorstore = self
+
+        class DummyRetriever:
+            def __init__(self):
+                self.invoke_calls = []
+
+            def invoke(self, query, config=None):
+                self.invoke_calls.append((query, config))
+                return vectorstore.similarity_search(
+                    query, search_kwargs.get("k")
+                )
+
+        return DummyRetriever()
+
 
 @pytest.fixture
 def knowledge(monkeypatch):
