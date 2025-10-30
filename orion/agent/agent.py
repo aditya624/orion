@@ -5,13 +5,11 @@ from orion.agent.helper import load_prompt, get_date_and_time, State, get_args_s
 from orion.tools.knowledge import Knowledge
 from orion.agent.history import HistoryStore
 
-from langchain_mongodb.chat_message_histories import MongoDBChatMessageHistory
 from langchain.tools import StructuredTool
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
-from langchain_core.messages import SystemMessage
 from langgraph.graph import StateGraph, START
 from langgraph.prebuilt import ToolNode, tools_condition
 
@@ -45,34 +43,13 @@ class Agent(object):
 
         return bindtools
 
-    def get_memory(self, session_id, history_size):
-
-        if history_size == -1:
-            history_size = settings.mongodb.history_size
-
-        return MongoDBChatMessageHistory(
-            session_id=session_id, 
-            connection_string=settings.mongodb.uri,
-            database_name=settings.mongodb.database,
-            collection_name=settings.mongodb.collection,
-            history_size=history_size
-        )
-
     def graph_builder(self):
         def chatbot(state: State):
             messages = state["messages"]
             extra_callbacks = state.get("extra_callbacks", [])
-            current_date = get_date_and_time()
-
-            system_prompt = self.prompt["agent"]["prompt"].format(current_date=current_date)
-
-            memory = self.get_memory(session_id=state["session_id"], history_size=-1)
-
-            system_prompt = SystemMessage(content=system_prompt)
-            inputs = [system_prompt] + memory.messages + messages
 
             response = llm_with_tools.invoke(
-                inputs,
+                messages,
                 config={
                     "callbacks": [CallbackHandler()]
                     + extra_callbacks
@@ -106,20 +83,36 @@ class Agent(object):
         )
 
     def generate(self, input, session_id, user_id, extra_callbacks=[]):
+
+        history_message_user = self.history_store.get_history_for_messages(
+            user_id=user_id,
+            session_id=session_id,
+            size=settings.mongodb.history_size
+        )
+
         answer = self.graph.invoke(
             {
-                "messages": [("human", input)],
-                "session_id": session_id,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": self.prompt["agent"]["prompt"].format(current_date=get_date_and_time()),
+                    },
+                ] 
+                + history_message_user
+                + [
+                    {
+                        "role": "user",
+                        "content": input,
+                    },
+                ]
             },
             {
                 "callbacks": [CallbackHandler()] 
                 + extra_callbacks,
             },
         )["messages"][-1].content
+
         answer = re.sub(r"<think>.*?</think>", "", answer.strip(), flags=re.DOTALL)
-        memory = self.get_memory(session_id=session_id, history_size=-1)
-        memory.add_user_message(input)
-        memory.add_ai_message(answer)
         self.history_store.save(user_id=user_id, session_id=session_id, input_text=input, answer=answer)
 
         return answer
