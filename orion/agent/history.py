@@ -46,6 +46,24 @@ class HistoryStore:
         collection.insert_one(document)
         return document
 
+    def get_history_for_messages(
+            self, user_id: str, session_id: str, size: int
+        ):
+        collection = self._get_collection()
+        data = collection.aggregate([
+            {"$match": {"user_id": user_id, "session_id": session_id}},
+            {"$sort": {"created_at": -1}},
+            {"$limit": size},
+            {"$sort": {"created_at": 1}}
+        ])
+
+        messages = []
+        for d in data:
+            messages.append({"role": "user", "content": d["input"]})
+            messages.append({"role": "assistant", "content": d["answer"]})
+
+        return messages
+
     def list(
         self,
         *,
