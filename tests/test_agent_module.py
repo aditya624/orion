@@ -1,5 +1,5 @@
 import types
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -24,7 +24,6 @@ def stub_settings():
 @pytest.fixture
 def agent_module(monkeypatch, stub_settings):
     from orion.agent import agent as agent_module
-    from orion.agent import history as history_module
 
     class FakeLangfuse:
         def __init__(self, *args, **kwargs):
@@ -68,23 +67,94 @@ def agent_module(monkeypatch, stub_settings):
             self.bound_tools = tools
             return FakeBoundLLM(tools)
 
-    class FakeHistory:
-        instances = []
+    class FakeHistoryStore:
+        _counter = 0
 
-        def __init__(self, session_id, connection_string, database_name, collection_name, history_size):
-            self.session_id = session_id
-            self.connection_string = connection_string
-            self.database_name = database_name
-            self.collection_name = collection_name
-            self.history_size = history_size
-            self.messages = []
-            self.__class__.instances.append(self)
+        def __init__(self):
+            self.saved_records = []
+            self.list_calls = []
+            self.get_history_calls = []
 
-        def add_user_message(self, message):
-            self.messages.append(("user", message))
+        def save(
+            self,
+            *,
+            user_id,
+            session_id,
+            input_text,
+            answer,
+            created_at=None,
+        ):
+            if created_at is None:
+                created_at = datetime(2024, 1, 1) + timedelta(minutes=self.__class__._counter)
+            self.__class__._counter += 1
 
-        def add_ai_message(self, message):
-            self.messages.append(("ai", message))
+            record = {
+                "user_id": user_id,
+                "session_id": session_id,
+                "input": input_text,
+                "answer": answer,
+                "created_at": created_at,
+            }
+            self.saved_records.append(record)
+            return record
+
+        def list(
+            self,
+            *,
+            user_id,
+            session_id,
+            order="DESC",
+            offset=0,
+            limit=None,
+        ):
+            if order not in {"ASC", "DESC"}:
+                raise ValueError("order must be either 'ASC' or 'DESC'")
+            if offset < 0:
+                raise ValueError("offset must be a non-negative integer")
+            if limit is not None and limit <= 0:
+                raise ValueError("limit must be greater than zero when provided")
+
+            self.list_calls.append(
+                {
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "order": order,
+                    "offset": offset,
+                    "limit": limit,
+                }
+            )
+
+            records = [
+                record
+                for record in self.saved_records
+                if record["user_id"] == user_id and record["session_id"] == session_id
+            ]
+
+            records.sort(key=lambda record: record["created_at"], reverse=(order == "DESC"))
+            if offset:
+                records = records[offset:]
+            if limit is not None:
+                records = records[:limit]
+            return list(records)
+
+        def get_history_for_messages(self, user_id, session_id, size):
+            self.get_history_calls.append(
+                {"user_id": user_id, "session_id": session_id, "size": size}
+            )
+
+            records = [
+                record
+                for record in self.saved_records
+                if record["user_id"] == user_id and record["session_id"] == session_id
+            ]
+            records.sort(key=lambda record: record["created_at"])
+            records = records[-size:]
+
+            messages = []
+            for record in records:
+                messages.append({"role": "user", "content": record["input"]})
+                messages.append({"role": "assistant", "content": record["answer"]})
+            return messages
 
     def fake_load_prompt(settings_obj, langfuse):
         return {
@@ -117,80 +187,15 @@ def agent_module(monkeypatch, stub_settings):
         llm_with_tools = self.model.bind_tools(self.bindtools)
         return FakeGraph(llm_with_tools)
 
-    class FakeCursor:
-        def __init__(self, records):
-            self._records = list(records)
-
-        def sort(self, field, direction):
-            reverse = direction in (-1, "DESC")
-            self._records.sort(
-                key=lambda record: record.get(field) or datetime.min,
-                reverse=reverse,
-            )
-            return self
-
-        def skip(self, count):
-            self._records = self._records[count:]
-            return self
-
-        def limit(self, count):
-            self._records = self._records[:count]
-            return self
-
-        def __iter__(self):
-            return iter(self._records)
-
-    class FakeCollection:
-        def __init__(self):
-            self.records = []
-
-        def insert_one(self, document):
-            self.records.append(document)
-
-        def find(self, query):
-            return FakeCursor(
-                record
-                for record in self.records
-                if record.get("user_id") == query.get("user_id")
-                and record.get("session_id") == query.get("session_id")
-            )
-
-    class FakeDatabase:
-        def __init__(self):
-            self.collections = {}
-
-        def __getitem__(self, name):
-            if name not in self.collections:
-                self.collections[name] = FakeCollection()
-            return self.collections[name]
-
-    class FakeMongoClient:
-        instances = []
-
-        def __init__(self, uri):
-            self.uri = uri
-            self.databases = {}
-            self.__class__.instances.append(self)
-
-        def __getitem__(self, name):
-            if name not in self.databases:
-                self.databases[name] = FakeDatabase()
-            return self.databases[name]
-
     monkeypatch.setattr(agent_module, "Langfuse", FakeLangfuse)
     monkeypatch.setattr(agent_module, "Knowledge", FakeKnowledge)
     monkeypatch.setattr(agent_module, "StructuredTool", FakeStructuredTool)
     monkeypatch.setattr(agent_module, "ChatGroq", FakeChatGroq)
-    monkeypatch.setattr(agent_module, "MongoDBChatMessageHistory", FakeHistory)
+    monkeypatch.setattr(agent_module, "HistoryStore", FakeHistoryStore)
     monkeypatch.setattr(agent_module, "load_prompt", fake_load_prompt)
     monkeypatch.setattr(agent_module, "get_args_schema", fake_get_args_schema)
     monkeypatch.setattr(agent_module, "settings", stub_settings)
     monkeypatch.setattr(agent_module.Agent, "graph_builder", fake_graph_builder)
-    monkeypatch.setattr(history_module, "settings", stub_settings)
-    monkeypatch.setattr(history_module, "MongoClient", FakeMongoClient)
-
-    agent_module.HistoryStore = history_module.HistoryStore
-    agent_module._history_module = history_module
 
     return agent_module
 
@@ -210,9 +215,10 @@ def test_agent_initializes_with_structured_tool(agent_module):
 
 def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
     agent = agent_module.Agent()
-    FakeHistory = agent_module.MongoDBChatMessageHistory
-    FakeHistory.instances.clear()
-    agent_module._history_module.MongoClient.instances.clear()
+    FakeHistoryStore = agent_module.HistoryStore
+    FakeHistoryStore._counter = 0
+    agent.history_store.saved_records.clear()
+    agent.history_store.get_history_calls.clear()
 
     answer = agent.generate("What is Orion?", session_id="session-123", user_id="user-42")
 
@@ -220,21 +226,14 @@ def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
     graph = agent.graph
     assert graph.calls, "Graph should be invoked"
     state, config = graph.calls[-1]
-    assert state["messages"] == [("human", "What is Orion?")]
+    assert state["messages"][-1] == {"role": "user", "content": "What is Orion?"}
     assert config["callbacks"], "Callbacks should be passed"
 
-    history = FakeHistory.instances[-1]
-    assert history.history_size == agent_module.settings.mongodb.history_size
-    assert history.messages == [
-        ("user", "What is Orion?"),
-        ("ai", "graph-answer"),
-    ]
+    history_instance = agent.history_store
+    assert history_instance.get_history_calls[-1]["size"] == agent_module.settings.mongodb.history_size
 
-    mongo_client = agent_module._history_module.MongoClient.instances[-1]
-    database = mongo_client.databases[agent_module.settings.mongodb.database]
-    collection = database.collections[agent_module.settings.mongodb.history_collection]
-    assert len(collection.records) == 1
-    document = collection.records[0]
+    assert len(history_instance.saved_records) == 1
+    document = history_instance.saved_records[0]
     assert document["user_id"] == "user-42"
     assert document["session_id"] == "session-123"
     assert document["input"] == "What is Orion?"
@@ -244,7 +243,10 @@ def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
 
 def test_agent_get_history_filters_by_user_and_session(agent_module):
     agent = agent_module.Agent()
-    agent_module._history_module.MongoClient.instances.clear()
+    FakeHistoryStore = agent_module.HistoryStore
+    FakeHistoryStore._counter = 0
+    agent.history_store.saved_records.clear()
+    agent.history_store.get_history_calls.clear()
 
     answer = agent.generate("Question 1", session_id="session-1", user_id="user-1")
     assert answer == "graph-answer"
