@@ -1,3 +1,4 @@
+import asyncio
 import re
 from langchain_groq import ChatGroq
 from orion.config import settings
@@ -73,8 +74,9 @@ class Agent(object):
 
         return graph
 
-    def get_history(self, user_id, session_id, order="DESC", offset=0, limit=20):
-        return self.history_store.list(
+    async def get_history(self, user_id, session_id, order="DESC", offset=0, limit=20):
+        return await asyncio.to_thread(
+            self.history_store.list,
             user_id=user_id,
             session_id=session_id,
             order=order,
@@ -82,22 +84,23 @@ class Agent(object):
             limit=limit,
         )
 
-    def generate(self, input, session_id, user_id, extra_callbacks=[]):
+    async def generate(self, input, session_id, user_id, extra_callbacks=[]):
 
-        history_message_user = self.history_store.get_history_for_messages(
-            user_id=user_id,
-            session_id=session_id,
-            size=settings.mongodb.history_size
+        history_message_user = await asyncio.to_thread(
+            self.history_store.get_history_for_messages,
+            user_id,
+            session_id,
+            settings.mongodb.history_size,
         )
 
-        answer = self.graph.invoke(
+        response = await self.graph.ainvoke(
             {
                 "messages": [
                     {
                         "role": "system",
                         "content": self.prompt["agent"]["prompt"].format(current_date=get_date_and_time()),
                     },
-                ] 
+                ]
                 + history_message_user
                 + [
                     {
@@ -106,13 +109,20 @@ class Agent(object):
                     },
                 ]
             },
-            {
-                "callbacks": [CallbackHandler()] 
-                + extra_callbacks,
+            config={
+                "callbacks": [CallbackHandler()] + extra_callbacks,
             },
-        )["messages"][-1].content
+        )
+
+        answer = response["messages"][-1].content
 
         answer = re.sub(r"<think>.*?</think>", "", answer.strip(), flags=re.DOTALL)
-        self.history_store.save(user_id=user_id, session_id=session_id, input_text=input, answer=answer)
+        await asyncio.to_thread(
+            self.history_store.save,
+            user_id=user_id,
+            session_id=session_id,
+            input_text=input,
+            answer=answer,
+        )
 
         return answer
