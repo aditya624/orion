@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException, Query
@@ -33,7 +34,7 @@ async def upload_link(payload: UploadLinksRequest):
     unique_links = list(dict.fromkeys([str(u) for u in payload.links]))
 
     try:
-        result = _knowledge.upload_link(unique_links) 
+        result = await asyncio.to_thread(_knowledge.upload_link, unique_links)
         logger.info("Upload success", extra={"request_id": request_id})
     except ValueError as ve:
         logger.error("Upload failed", extra={"error": str(ve)})
