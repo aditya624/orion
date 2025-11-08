@@ -1,3 +1,4 @@
+import asyncio
 import time
 import uuid
 from datetime import datetime
@@ -43,7 +44,12 @@ async def generate_response(req: Request, payload: GenerateRequest):
     start = time.perf_counter()
 
     try:
-        answer = _agent.generate(input=payload.input, session_id=payload.session_id, user_id=payload.user_id)
+        answer = await asyncio.to_thread(
+            _agent.generate,
+            input=payload.input,
+            session_id=payload.session_id,
+            user_id=payload.user_id,
+        )
 
         latency_ms = int((time.perf_counter() - start) * 1000)
         logger.info("Agent success", extra={"request_id": request_id})
@@ -82,7 +88,8 @@ async def get_history(
     start = time.perf_counter()
 
     try:
-        histories = _agent.get_history(
+        histories = await asyncio.to_thread(
+            _agent.get_history,
             user_id=user_id,
             session_id=session_id,
             order=order,

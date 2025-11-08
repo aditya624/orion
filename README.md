@@ -1,13 +1,12 @@
-# 🌌 Orion — Populix Knowledge Agent API
+# 🌌 Orion — Knowledge Agent API
 
-Welcome to **Orion**, a FastAPI-based backend that fulfills the "Machine Learning Engineer Technical Assignment" brief by exposing a minimal yet production-minded API for interacting with an LLM-powered agent. The agent is fine-tuned (via prompt + tools) to answer questions about **Populix**—from business model insights to product capabilities—by grounding its responses in a curated knowledge base.
+Welcome to **Orion**, a FastAPI-based backend for building retrieval-augmented agent experiences. It provides a minimal yet production-minded API for interacting with an LLM-powered assistant that can answer domain-specific questions by grounding its responses in a curated knowledge base.
 
 ### ☁️ Production Deployment
 
-Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize**, supplying the `TOKEN` shared via email to access the protected endpoints.
+Orion can be deployed to any managed container platform (Cloud Run, ECS, Fly.io, etc.). The reference deployment runs on **Google Cloud Run**. Explore the public Swagger UI at [https://orion-53063754153.asia-southeast2.run.app/docs](https://orion-53063754153.asia-southeast2.run.app/docs) and click **Authorize**, supplying the `TOKEN` configured for that environment to access the protected endpoints.
 
-> ⚠️ **Note:** The first access might take a little longer to respond because Orion is deployed with Cloud Run’s *request-balanced* system.  
-> This means the deployment automatically **scales down to zero** when idle and **warms up again** upon new requests.
+> ⚠️ **Note:** The first access might take a little longer to respond because Cloud Run’s *request-balanced* system automatically **scales down to zero** when idle and **warms up again** upon new requests.
 
 ### 🔄 Development-to-Production Flow
 
@@ -24,32 +23,23 @@ Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https:/
 
 ---
 
-## 🎯 Assignment Alignment
-| Requirement | How Orion Delivers |
-|-------------|--------------------|
-| Build a functional API service on top of an open-source LLM | Uses `langchain` with the **Groq-hosted Qwen 3 32B** chat model plus tool bindings. |
-| Provide a public API endpoint that exposes the model's reasoning ability | `/v1/agent/generate` handles authenticated question answering with retrieval augmentation. |
-| Run locally or on cloud infrastructure | Runs with `uvicorn` locally or via Docker; relies on managed services (MongoDB, Qdrant, Langfuse) but can be substituted with self-hosted instances. |
-
----
-
-## 🧠 High-Level Architecture Production Ready
+## 🧠 Reference Architecture
 
 <p align="center">
-  <img src="docs/assets/populix-architecture-production.png" alt="Populix agent architecture diagram showing Orion orchestrating Groq Qwen 3 32B, Qdrant, MongoDB, Langfuse, and Hugging Face" width="720" />
+  <img src="docs/assets/populix-architecture-production.png" alt="Reference architecture diagram showing Orion orchestrating Groq Qwen 3 32B, Qdrant, MongoDB, Langfuse, and Hugging Face" width="720" />
 </p>
 
 ### Component Responsibilities
 
-| Component | Role in the Populix Agent |
-|-----------|---------------------------|
-| **Clients** | Populix web / internal tools send authenticated questions to Orion. |
+| Component | Role in the Agent |
+|-----------|-------------------|
+| **Clients** | Web apps, internal tools, or integrations send authenticated questions to Orion. |
 | **Orion Service** | FastAPI handles HTTP, validates bearer tokens, and forwards work to the LangChain/LangGraph agent that chooses between retrieval, memory, and generation tools. |
-| **Hugging Face Endpoint Embeddings** | Produces dense vectors for new Populix documents during ingestion. |
-| **Qdrant Vector DB** | Stores embeddings and supports semantic search to supply the agent with grounded Populix knowledge. |
-| **MongoDB Chat History** | Maintains per-user conversation state so follow-up questions inherit prior context. |
-| **Langfuse Observability** | Tracks prompts, traces, and evaluation metrics for debugging and governance. |
-| **Groq + Qwen 3 32B** | Groq's accelerated inference host runs the open-source Qwen 3 32B model that ultimately drafts the natural-language answer. |
+| **Embedding Service** | Produces dense vectors for new documents during ingestion. Any Hugging Face or self-hosted embedding model can be used. |
+| **Vector Database** | Stores embeddings and supports semantic search to supply the agent with grounded knowledge. Qdrant is used in the reference deployment but can be swapped. |
+| **Conversation Store** | Maintains per-user conversation state so follow-up questions inherit prior context. MongoDB is the default implementation. |
+| **Observability Stack** | Tracks prompts, traces, and evaluation metrics for debugging and governance (Langfuse in the reference setup). |
+| **LLM Runtime** | Executes the chat model that drafts the natural-language answer. The project ships with Groq-hosted Qwen 3 32B but any OpenAI-compatible endpoint works. |
 
 ### 🧩 Knowledge Ingestion Flow
 
@@ -58,34 +48,10 @@ Orion is live on **Google Cloud Run**. Explore the public Swagger UI at [https:/
 </p>
 
 1. **Client Upload Trigger** — A client sends a request to the `/upload-link` endpoint to register a new knowledge source.
-2. **Web Crawling** — Orion fetches and crawls the referenced webpage, capturing its contents as raw text.
-3. **LLM Cleaning (Qwen 3 32B)** — The raw text is normalized and rewritten by the Qwen 3 32B model so the content is structured and easy to chunk.
+2. **Web Crawling / Ingestion** — Orion fetches the referenced webpage (or document), capturing its contents as raw text.
+3. **LLM Cleaning** — The raw text is normalized by the configured LLM so the content is structured and easy to chunk.
 4. **Chunking** — The polished text is segmented into retrieval-friendly chunks.
-5. **Vector Store Insertion** — Each chunk is embedded and persisted into the Qdrant vector database to make it searchable for the agent.
-
-> 🗒️ **Knowledge Sources Uploaded to Date**
->
-> - https://info.populix.co/
-> - https://info.populix.co/solutions/market-research
-> - https://info.populix.co/solutions/policy-society-research
-> - https://info.populix.co/insight-hub
-> - https://info.populix.co/solutions/popsurvey
-> - https://info.populix.co/solutions/respondent-only
-> - https://info.populix.co/industries
-> - https://info.populix.co/industries/automotive
-> - https://info.populix.co/industries/venture-capital-and-investments
-> - https://info.populix.co/industries/fast-moving-consumer-goods
-> - https://info.populix.co/industries/professional-services
-> - https://info.populix.co/industries/information-and-computer-technology
-> - https://info.populix.co/industries/banking
-> - https://info.populix.co/industries/goverment-institutions
-> - https://info.populix.co/industries/non-profit-organizations
-> - https://info.populix.co/industries/political-organizations
-> - https://info.populix.co/industries/media-communications
-> - https://info.populix.co/data-hub
-> - https://info.populix.co/panel
-> - https://info.populix.co/articles/faq/
-> - https://info.populix.co/indonesia-masters-university-rankings
+5. **Vector Store Insertion** — Each chunk is embedded and persisted into the vector database to make it searchable for the agent.
 
 ---
 
@@ -103,7 +69,7 @@ pip install -e .
 ```
 
 ### 2. Configure Environment
-Create a `.env` file (or export variables) with only the required secrets (all sensitive keys have been shared with you via email):
+Create a `.env` file (or export variables) with the required secrets for your environment:
 
 ```env
 MONGODB_URI=<mongodb-uri>
@@ -147,7 +113,7 @@ Requests without a matching token receive `401 Unauthorized` responses.
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET`  | `/health` | Liveness probe for the agent service. |
-| `POST` | `/generate` | Main entrypoint for Populix Q&A. Returns the answer and latency (ms). |
+| `POST` | `/generate` | Main entrypoint for agent Q&A. Returns the answer and latency (ms). |
 | `GET`  | `/history` | Fetches conversation history for a `user_id` + `session_id` pair, ordered ascending or descending. |
 
 #### Generate Request Example
@@ -158,7 +124,7 @@ curl -X POST http://localhost:8000/v1/agent/generate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-        "input": "Apa saja produk riset Populix untuk brand FMCG?",
+        "input": "What are the key offerings covered in the knowledge base?",
         "session_id": "demo-session",
         "user_id": "demo-user"
       }'
@@ -175,7 +141,7 @@ curl -X POST http://localhost:8000/v1/agent/generate \
 #### Generate Response Example
 ```json
 {
-  "answer": "Hai Sobat, Populix menawarkan berbagai produk dan layanan untuk kebutuhan riset pasar dan sosial, antara lain:\n\n1. **PopSurvey**  \n   Platform survei *self-service* untuk membuat dan menjalankan survei secara mandiri dengan mudah.\n\n2. **Market Research Solutions**  \n   - **Customer Experience**: Analisis NPS, studi kepuasan pelanggan.  \n   - **Brand Research**: Pemetaan persepsi, kesehatan merek, dan posisi pasar.  \n   - **Product Research**: Uji konsep, pengujian produk, dan segmentasi pasar.  \n   - **Market Overview**: Analisis tren industri dan peluang pasar.\n\n3. **Solutions Berdasarkan Industri**  \n   - **FMCG**: Studi perilaku konsumen, inovasi produk, dan strategi pemasaran.  \n   - **Professional Services**: Pemantauan kesehatan merek dan strategi akuisisi klien.  \n   - **ICT & FinTech**: Analisis adopsi teknologi dan kebutuhan pasar.  \n   - **Banking**: Penelitian pola penggunaan layanan keuangan.\n\n4. **Data Hub & Panel**  \n   Akses ke basis data responden yang luas di Indonesia untuk menjangkau target audiens secara akurat.\n\n5. **Layanan Khusus**  \n   - Bantuan pengembangan kuesioner.  \n   - Analisis data dan pelaporan mendalam.  \n\nUntuk detail lebih lanjut, kunjungi [situs resmi Populix](https://info.populix.co/). Semoga bermanfaat! 😊",
+  "answer": "Hello! Here's a quick overview of the knowledge captured in the Orion demo workspace:\n\n1. **Product Offering**  \n   - Overview of flagship services, including survey tooling and managed research engagements.\n   - Audience segmentation and typical use-cases.\n\n2. **Industry Playbooks**  \n   - How teams in FMCG, finance, and technology leverage the platform.\n   - Example KPIs to monitor after rollout.\n\n3. **Operations & Data**  \n   - Available respondent panels, data governance policies, and insight delivery format.\n\n4. **Getting Started Tips**  \n   - Resources to help new analysts craft better prompts.\n   - Links to onboarding documentation.\n\nLet me know if you want a deeper dive into any of these areas!",
   "session_id": "demo-session",
   "latency_ms": 11060
 }
@@ -185,7 +151,7 @@ curl -X POST http://localhost:8000/v1/agent/generate \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `answer` | `string` | Model-generated response grounded in the Populix knowledge base. |
+| `answer` | `string` | Model-generated response grounded in the configured knowledge base. |
 | `session_id` | `string` | Echoes the conversation identifier supplied in the request. |
 | `latency_ms` | `number` | End-to-end processing time in milliseconds for the request. |
 
@@ -220,8 +186,8 @@ curl -G http://localhost:8000/v1/agent/history \
     {
       "user_id": "demo-user",
       "session_id": "demo-session",
-      "input": "Halo berikan apa saja product populix!",
-      "answer": "Hai Sobat, Populix menawarkan berbagai produk dan layanan untuk kebutuhan riset pasar dan sosial, antara lain:\n\n1. **PopSurvey**  \n   Platform survei *self-service* untuk membuat dan menjalankan survei secara mandiri dengan mudah.\n\n2. **Market Research Solutions**  \n   - **Customer Experience**: Analisis NPS, studi kepuasan pelanggan.  \n   - **Brand Research**: Pemetaan persepsi, kesehatan merek, dan posisi pasar.  \n   - **Product Research**: Uji konsep, pengujian produk, dan segmentasi pasar.  \n   - **Market Overview**: Analisis tren industri dan peluang pasar.\n\n3. **Solutions Berdasarkan Industri**  \n   - **FMCG**: Studi perilaku konsumen, inovasi produk, dan strategi pemasaran.  \n   - **Professional Services**: Pemantauan kesehatan merek dan strategi akuisisi klien.  \n   - **ICT & FinTech**: Analisis adopsi teknologi dan kebutuhan pasar.  \n   - **Banking**: Penelitian pola penggunaan layanan keuangan.\n\n4. **Data Hub & Panel**  \n   Akses ke basis data responden yang luas di Indonesia untuk menjangkau target audiens secara akurat.\n\n5. **Layanan Khusus**  \n   - Bantuan pengembangan kuesioner.  \n   - Analisis data dan pelaporan mendalam.  \n\nUntuk detail lebih lanjut, kunjungi [situs resmi Populix](https://info.populix.co/). Semoga bermanfaat! 😊",
+      "input": "What knowledge is available in the demo space?",
+      "answer": "Hello! Here's a quick overview of the knowledge captured in the Orion demo workspace:\n\n1. **Product Offering**  \n   - Overview of flagship services, including survey tooling and managed research engagements.\n   - Audience segmentation and typical use-cases.\n\n2. **Industry Playbooks**  \n   - How teams in FMCG, finance, and technology leverage the platform.\n   - Example KPIs to monitor after rollout.\n\n3. **Operations & Data**  \n   - Available respondent panels, data governance policies, and insight delivery format.\n\n4. **Getting Started Tips**  \n   - Resources to help new analysts craft better prompts.\n   - Links to onboarding documentation.\n\nLet me know if you want a deeper dive into any of these areas!",
       "created_at": "2025-10-19T09:02:18.446000"
     }
   ]
@@ -248,7 +214,7 @@ curl -G http://localhost:8000/v1/agent/history \
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET`  | `/health` | Liveness probe for the knowledge ingestor. |
-| `POST` | `/upload-link` | Deduplicates and ingests new Populix web pages. Stores chunks in Qdrant and embeddings on Hugging Face. |
+| `POST` | `/upload-link` | Deduplicates and ingests new web pages. Stores chunks in Qdrant and embeddings on Hugging Face. |
 
 #### Upload Request Example
 ```bash
@@ -259,10 +225,10 @@ curl -X POST http://localhost:8000/v1/knowledge/upload-link \
   -H "Content-Type: application/json" \
   -d '{
         "links": [
-          "https://info.populix.co/",
-          "https://info.populix.co/solutions/market-research",
-          "https://info.populix.co/solutions/policy-society-research",
-          "https://info.populix.co/insight-hub"
+          "https://docs.example.com/overview",
+          "https://docs.example.com/platform/analytics",
+          "https://docs.example.com/platform/automation",
+          "https://docs.example.com/resources/getting-started"
         ]
       }'
 ```
@@ -271,12 +237,12 @@ curl -X POST http://localhost:8000/v1/knowledge/upload-link \
 ```json
 {
   "skipped": [
-    "https://info.populix.co/"
+    "https://docs.example.com/overview"
   ],
   "processed": [
-    "https://info.populix.co/solutions/market-research",
-    "https://info.populix.co/solutions/policy-society-research",
-    "https://info.populix.co/insight-hub"
+    "https://docs.example.com/platform/analytics",
+    "https://docs.example.com/platform/automation",
+    "https://docs.example.com/resources/getting-started"
   ],
   "counts": {
     "skipped": 1,
@@ -297,12 +263,12 @@ curl -X POST http://localhost:8000/v1/knowledge/upload-link \
 ```json
 {
   "skipped": [
-    "https://info.populix.co/"
+    "https://docs.example.com/overview"
   ],
   "processed": [
-    "https://info.populix.co/solutions/market-research",
-    "https://info.populix.co/solutions/policy-society-research",
-    "https://info.populix.co/insight-hub"
+    "https://docs.example.com/platform/analytics",
+    "https://docs.example.com/platform/automation",
+    "https://docs.example.com/resources/getting-started"
   ],
   "counts": {
     "skipped": 1,
@@ -335,7 +301,7 @@ curl -X POST http://localhost:8000/v1/knowledge/upload-link \
 orion/
 ├── .github/
 │   └── workflows/           # CI configuration for linting, testing, and deploys
-├── dockerfile               # Container image definition for Cloud Run
+├── dockerfile               # Container image definition for production deployments
 ├── docs/
 │   └── assets/              # Architecture & process diagrams
 ├── orion/
