@@ -11,7 +11,7 @@ from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.prompts import PromptTemplate
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
-from langchain_experimental.text_splitter import SemanticChunker
+from orion.tools.semantic import SemanticChunker
 
 from langfuse.langchain import CallbackHandler
 
