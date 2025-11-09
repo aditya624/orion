@@ -2,6 +2,7 @@ import sys
 import types
 
 import pytest
+from unittest.mock import ANY
 
 from langchain_core.documents import Document
 
@@ -109,14 +110,18 @@ def knowledge(monkeypatch):
     class DummyChain:
         def __init__(self):
             self.calls = []
+            self.return_value = "dummy summary"
 
         def invoke(self, inputs, config=None):
             self.calls.append((inputs, config))
-            return "dummy summary"
+            return self.return_value
 
     dummy_chain = DummyChain()
 
-    monkeypatch.setattr("orion.tools.knowledge.Knowledge.build_chain", lambda self: dummy_chain)
+    def _build_chain(_self):
+        return dummy_chain
+
+    monkeypatch.setattr("orion.tools.knowledge.Knowledge.build_chain", _build_chain)
 
     loader_calls = []
 
@@ -143,35 +148,30 @@ def knowledge(monkeypatch):
         }
     }
 
-    return Knowledge(prompt=prompt), vectorstore, splitter, loader_calls
+    knowledge_instance = Knowledge(prompt=prompt)
+    return knowledge_instance, vectorstore, splitter, loader_calls
 
 
-def test_query_builds_context(knowledge):
-    knowledge_instance, vectorstore, _, _ = knowledge
-    vectorstore.similarity_search_result = [
+def test_reformat_sanitizes_model_output(knowledge):
+    knowledge_instance, _, _, _ = knowledge
+
+    knowledge_instance.chain.return_value = "<think>internal</think>Clean summary"
+
+    docs = [
         Document(
-            page_content="content one",
-            metadata={"title": "First", "source": "https://first.example"},
-        ),
-        Document(
-            page_content="content two",
-            metadata={"title": "Second", "source": "https://second.example"},
-        ),
+            page_content="source text",
+            metadata={"title": "Title", "source": "https://example.com"},
+        )
     ]
 
-    result = knowledge_instance.query("test query")
+    reformatted = knowledge_instance.reformat(docs)
 
-    expected = (
-        "# Title: First\n"
-        "## Link: https://first.example\n"
-        "## Chunk of Content:\ncontent one\n\n"
-        "# Title: Second\n"
-        "## Link: https://second.example\n"
-        "## Chunk of Content:\ncontent two\n\n"
-    )
-
-    assert result == expected
-    assert vectorstore.similarity_search_args == [("test query", settings.qdrant.top_k)]
+    assert len(reformatted) == 1
+    assert reformatted[0].page_content == "Clean summary"
+    assert reformatted[0].metadata == {"title": "Title", "source": "https://example.com"}
+    # Ensure the chain was invoked with the original page content so the prompt keeps
+    # receiving the raw document.
+    assert knowledge_instance.chain.calls == [({"input": "source text"}, {"callbacks": [ANY]})]
 
 
 def test_check_validity_categorizes_links(knowledge):
