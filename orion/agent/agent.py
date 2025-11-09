@@ -5,15 +5,16 @@ from orion.agent.helper import load_prompt, get_date_and_time, State, get_args_s
 from orion.tools.knowledge import Knowledge
 from orion.agent.history import HistoryStore
 
-from langchain.tools import StructuredTool
+from langchain_core.tools import StructuredTool
 from langchain_mcp_adapters.client import MultiServerMCPClient  
 from langchain_mcp_adapters.tools import load_mcp_tools
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
-from langgraph.graph import StateGraph, START
-from langgraph.prebuilt import ToolNode, tools_condition
+from langchain.agents import create_agent
+# from langgraph.graph import StateGraph, START
+# from langgraph.prebuilt import ToolNode, tools_condition
 
 
 class Agent(object):
@@ -31,7 +32,7 @@ class Agent(object):
         self.graph = self.graph_builder()
         self.history_store = HistoryStore()
 
-    async def get_tools(self):
+    def get_mcp(self):
         client = MultiServerMCPClient(  
             {
                 "knowledge": {
@@ -42,40 +43,15 @@ class Agent(object):
             }
         )
 
-        async with client.session("knowledge") as session:
-            tools = await load_mcp_tools(session)
-
-        return tools
+        return client
 
     async def graph_builder(self):
-        def chatbot(state: State):
-            messages = state["messages"]
-            extra_callbacks = state.get("extra_callbacks", [])
-
-            response = llm_with_tools.invoke(
-                messages,
-                config={
-                    "callbacks": [CallbackHandler()]
-                    + extra_callbacks
-                },
-            )
-
-            return {"messages": [response]}
-
-        tools = await self.get_tools()
-        llm_with_tools = self.model.bind_tools(tools)
-        graph_builder = StateGraph(State)
-
-        tool_node = ToolNode(tools=tools)
-        graph_builder.add_node("tools", tool_node)
-        graph_builder.add_edge(START, "chatbot")
-        graph_builder.add_node("chatbot", chatbot)
-
-        graph_builder.add_conditional_edges("chatbot", tools_condition)
-        graph_builder.add_edge("tools", "chatbot")
-        graph_builder.set_entry_point("chatbot")
-        graph = graph_builder.compile().with_config({"run_name": "agent"})
-
+        mcp_client = self.get_mcp()
+        tools = await mcp_client.get_tools()
+        graph = create_agent(
+            model=self.model,
+            tools=tools,
+        )
         return graph
 
     def get_history(self, user_id, session_id, order="DESC", offset=0, limit=20):
@@ -88,14 +64,13 @@ class Agent(object):
         )
 
     async def generate(self, input, session_id, user_id, extra_callbacks=[]):
-
         history_message_user = self.history_store.get_history_for_messages(
             user_id=user_id,
             session_id=session_id,
             size=settings.mongodb.history_size
         )
 
-        answer = self.graph.ainvoke(
+        answer = await self.graph.ainvoke(
             {
                 "messages": [
                     {

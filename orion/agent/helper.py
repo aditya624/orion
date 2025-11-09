@@ -2,7 +2,7 @@ from langfuse import Langfuse
 from orion.config import Settings
 import pytz, datetime
 
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import Annotated, Optional
 from langgraph.graph.message import add_messages, AnyMessage
 from typing_extensions import TypedDict

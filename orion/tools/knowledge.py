@@ -8,8 +8,8 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client.http import models as rest
 
 from langchain_community.document_loaders import WebBaseLoader
-from langchain.docstore.document import Document
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_experimental.text_splitter import SemanticChunker
 
