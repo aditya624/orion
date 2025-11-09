@@ -15,8 +15,8 @@ class EmbeddingConfig(BaseModel):
     timeout_s: int = int(os.getenv("EMBEDDING_TIMEOUT_S", "300"))
 
 class MCPConfig(BaseModel):
-    mcp_transport: str = os.getenv("MCP_TRANSPORT", "streamable_http")
-    mcp_url: str = os.getenv("MCP_URL", "http://localhost:8181/mcp")
+    mcp_knowledge_transport: str = os.getenv("MCP_KNOWLEDGE_TRANSPORT", "streamable_http")
+    mcp_knowledge_url: str = os.getenv("MCP_KNOWLEDGE_URL", "http://localhost:8181/mcp")
 
 class MongodbConfig(BaseModel):
     uri: str = os.getenv("MONGODB_URI", "")
