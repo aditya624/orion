@@ -8,8 +8,8 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client.http import models as rest
 
 from langchain_community.document_loaders import WebBaseLoader
-from langchain.docstore.document import Document
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_experimental.text_splitter import SemanticChunker
 
@@ -37,10 +37,6 @@ class Knowledge(object):
             collection_name=settings.qdrant.collection
         )
 
-        self.retriever = self.vectorstore.as_retriever(
-            search_kwargs={"k": settings.qdrant.top_k}
-        )
-
         self.semantic_splitter = SemanticChunker(
             self.embeddings, breakpoint_threshold_type="percentile", breakpoint_threshold_amount=80
         )
@@ -58,19 +54,6 @@ class Knowledge(object):
         ).with_config({"run_name": "chain"})
 
         return chain
-
-    def query(self, query):
-        docs = self.retriever.invoke(query, config={"callbacks":[CallbackHandler()]})
-        context = ""
-        for doc in docs:
-            page_content = doc.page_content
-            metadata = doc.metadata
-
-            context += f"# Title: {metadata['title']}\n"
-            context += f"## Link: {metadata['source']}\n"
-            context += f"## Chunk of Content:\n{page_content}\n\n"
-
-        return context
 
     def check_validity(self, links: list):
         clean_link = defaultdict(list)

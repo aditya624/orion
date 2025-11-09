@@ -42,7 +42,7 @@ def api_client(monkeypatch, stub_settings):
             self.history_calls = []
             self.knowledge = FakeKnowledge()
 
-        def generate(self, input, session_id, user_id, extra_callbacks=None):
+        async def generate(self, input, session_id, user_id, extra_callbacks=None):
             self.calls.append((input, session_id, user_id))
             return f"answer for {input}"
 

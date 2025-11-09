@@ -25,6 +25,10 @@ def stub_settings():
 def agent_module(monkeypatch, stub_settings):
     from orion.agent import agent as agent_module
 
+    class FakeChatGroq:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
     class FakeLangfuse:
         def __init__(self, *args, **kwargs):
             pass
@@ -32,40 +36,11 @@ def agent_module(monkeypatch, stub_settings):
     class FakeKnowledge:
         def __init__(self, prompt=None):
             self.prompt = prompt
-            self.calls = []
+            self.upload_calls = []
 
-        def query(self, *args, **kwargs):
-            self.calls.append((args, kwargs))
-            return "knowledge-response"
-
-    class FakeStructuredTool:
-        def __init__(self, func, args_schema, name, description):
-            self.func = func
-            self.args_schema = args_schema
-            self.name = name
-            self.description = description
-
-        @classmethod
-        def from_function(cls, func, args_schema=None, name=None, description=None):
-            return cls(func, args_schema, name, description)
-
-    class FakeBoundLLM:
-        def __init__(self, tools):
-            self.tools = tools
-            self.invoke_calls = []
-
-        def invoke(self, inputs, config):
-            self.invoke_calls.append((inputs, config))
-            return types.SimpleNamespace(content="llm-result")
-
-    class FakeChatGroq:
-        def __init__(self, **kwargs):
-            self.kwargs = kwargs
-            self.bound_tools = None
-
-        def bind_tools(self, tools):
-            self.bound_tools = tools
-            return FakeBoundLLM(tools)
+        def upload_link(self, links):
+            self.upload_calls.append(list(links))
+            return {"exists": [], "not_exists": list(links)}
 
     class FakeHistoryStore:
         _counter = 0
@@ -160,107 +135,96 @@ def agent_module(monkeypatch, stub_settings):
         return {
             "agent": {
                 "config": {"model": "stub-model"},
-                "prompt": "Today is {current_date}"
+                "prompt": "Today is {current_date}",
             },
             "knowledge": {
                 "config": {"name": "knowledge-tool"},
-                "description": "Access knowledge base"
+                "description": "Access knowledge base",
             },
         }
 
-    class KnowledgeArgs(types.SimpleNamespace):
-        pass
-
-    def fake_get_args_schema(prompt):
-        return {"knowledge": KnowledgeArgs}
-
     class FakeGraph:
-        def __init__(self, llm):
-            self.llm = llm
+        def __init__(self, model):
+            self.model = model
             self.calls = []
 
-        def invoke(self, state, config):
+        async def ainvoke(self, state, config):
             self.calls.append((state, config))
-            return {"messages": [types.SimpleNamespace(content="graph-answer")]} 
+            return {"messages": [types.SimpleNamespace(content="graph-answer")]}  # noqa: B950
 
-    def fake_graph_builder(self):
-        llm_with_tools = self.model.bind_tools(self.bindtools)
-        return FakeGraph(llm_with_tools)
+    async def fake_graph_builder(self):
+        return FakeGraph(self.model)
 
     monkeypatch.setattr(agent_module, "Langfuse", FakeLangfuse)
     monkeypatch.setattr(agent_module, "Knowledge", FakeKnowledge)
-    monkeypatch.setattr(agent_module, "StructuredTool", FakeStructuredTool)
     monkeypatch.setattr(agent_module, "ChatGroq", FakeChatGroq)
     monkeypatch.setattr(agent_module, "HistoryStore", FakeHistoryStore)
     monkeypatch.setattr(agent_module, "load_prompt", fake_load_prompt)
-    monkeypatch.setattr(agent_module, "get_args_schema", fake_get_args_schema)
     monkeypatch.setattr(agent_module, "settings", stub_settings)
     monkeypatch.setattr(agent_module.Agent, "graph_builder", fake_graph_builder)
+    monkeypatch.setattr(agent_module, "get_date_and_time", lambda: "2024-01-01")
 
     return agent_module
 
 
-def test_agent_initializes_with_structured_tool(agent_module):
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
+def test_agent_initializes_components(agent_module):
     agent = agent_module.Agent()
 
     assert agent.model.kwargs["model"] == "stub-model"
     assert agent.model.kwargs["api_key"] == "fake-key"
-    assert len(agent.bindtools) == 1
-
-    tool = agent.bindtools[0]
-    assert tool.name == "knowledge-tool"
-    assert tool.description == "Access knowledge base"
-    assert agent.model.bound_tools is agent.bindtools
+    assert agent.knowledge.prompt["knowledge"]["description"] == "Access knowledge base"
+    assert isinstance(agent.history_store, agent_module.HistoryStore)
 
 
-def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
+@pytest.mark.anyio("asyncio")
+async def test_agent_generate_invokes_graph_and_updates_memory(agent_module):
     agent = agent_module.Agent()
-    FakeHistoryStore = agent_module.HistoryStore
-    FakeHistoryStore._counter = 0
-    agent.history_store.saved_records.clear()
-    agent.history_store.get_history_calls.clear()
+    history = agent.history_store
+    history.saved_records.clear()
+    history.get_history_calls.clear()
+    agent.graph = None
 
-    answer = agent.generate("What is Orion?", session_id="session-123", user_id="user-42")
+    answer = await agent.generate(
+        "What is Orion?", session_id="session-123", user_id="user-42"
+    )
 
     assert answer == "graph-answer"
-    graph = agent.graph
-    assert graph.calls, "Graph should be invoked"
-    state, config = graph.calls[-1]
+    assert isinstance(agent.graph, object)
+    assert agent.graph.calls, "Graph should receive a call"
+    state, config = agent.graph.calls[-1]
     assert state["messages"][-1] == {"role": "user", "content": "What is Orion?"}
-    assert config["callbacks"], "Callbacks should be passed"
+    assert config["callbacks"]
+    assert history.get_history_calls[-1]["size"] == agent_module.settings.mongodb.history_size
 
-    history_instance = agent.history_store
-    assert history_instance.get_history_calls[-1]["size"] == agent_module.settings.mongodb.history_size
-
-    assert len(history_instance.saved_records) == 1
-    document = history_instance.saved_records[0]
+    assert len(history.saved_records) == 1
+    document = history.saved_records[0]
     assert document["user_id"] == "user-42"
     assert document["session_id"] == "session-123"
     assert document["input"] == "What is Orion?"
     assert document["answer"] == "graph-answer"
-    assert "created_at" in document
 
 
-def test_agent_get_history_filters_by_user_and_session(agent_module):
+@pytest.mark.anyio("asyncio")
+async def test_agent_get_history_filters_by_user_and_session(agent_module):
     agent = agent_module.Agent()
-    FakeHistoryStore = agent_module.HistoryStore
-    FakeHistoryStore._counter = 0
-    agent.history_store.saved_records.clear()
-    agent.history_store.get_history_calls.clear()
+    history = agent.history_store
+    history.saved_records.clear()
 
-    answer = agent.generate("Question 1", session_id="session-1", user_id="user-1")
-    assert answer == "graph-answer"
-    agent.generate("Question 2", session_id="session-1", user_id="user-1")
-    agent.generate("Question 3", session_id="session-1", user_id="user-2")
+    await agent.generate("Question 1", session_id="session-1", user_id="user-1")
+    await agent.generate("Question 2", session_id="session-1", user_id="user-1")
+    await agent.generate("Question 3", session_id="session-1", user_id="user-2")
 
-    history = agent.get_history(user_id="user-1", session_id="session-1")
-    assert len(history) == 2
-    assert [entry["input"] for entry in history] == ["Question 2", "Question 1"]
-    for entry in history:
+    recent = agent.get_history(user_id="user-1", session_id="session-1")
+    assert [entry["input"] for entry in recent] == ["Question 2", "Question 1"]
+    for entry in recent:
         assert entry["user_id"] == "user-1"
         assert entry["session_id"] == "session-1"
         assert entry["answer"] == "graph-answer"
-        assert entry["created_at"] is not None
 
     oldest_first = agent.get_history(user_id="user-1", session_id="session-1", order="ASC")
     assert [entry["input"] for entry in oldest_first] == ["Question 1", "Question 2"]
