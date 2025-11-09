@@ -1,18 +1,16 @@
 import re
 from langchain_groq import ChatGroq
 from orion.config import settings
-from orion.agent.helper import load_prompt, get_date_and_time, State, get_args_schema
+from orion.agent.helper import load_prompt, get_date_and_time
 from orion.tools.knowledge import Knowledge
 from orion.agent.history import HistoryStore
 
-from langchain.tools import StructuredTool
+from langchain_mcp_adapters.client import MultiServerMCPClient  
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
-from langgraph.graph import StateGraph, START
-from langgraph.prebuilt import ToolNode, tools_condition
-
+from langchain.agents import create_agent
 
 class Agent(object):
     def __init__(self):
@@ -25,53 +23,35 @@ class Agent(object):
         )
 
         self.knowledge = Knowledge(prompt=self.prompt)
-        self.bindtools = self.get_tools()
 
-        self.graph = self.graph_builder()
+        self.graph = None
         self.history_store = HistoryStore()
 
-    def get_tools(self):
-        args_schema = get_args_schema(self.prompt)
-        bindtools = [
-            StructuredTool.from_function(
-                func=self.knowledge.query,
-                args_schema=args_schema["knowledge"],
-                name=self.prompt["knowledge"]["config"]["name"],
-                description=self.prompt["knowledge"]["description"]
-            ),
-        ]
+    def get_mcp(self):
+        client = MultiServerMCPClient(  
+            {
+                "knowledge": {
+                    "transport": settings.mcp.mcp_knowledge_transport, 
+                    "url": settings.mcp.mcp_knowledge_url,
+                }
+            }
+        )
 
-        return bindtools
+        return client
 
-    def graph_builder(self):
-        def chatbot(state: State):
-            messages = state["messages"]
-            extra_callbacks = state.get("extra_callbacks", [])
-
-            response = llm_with_tools.invoke(
-                messages,
-                config={
-                    "callbacks": [CallbackHandler()]
-                    + extra_callbacks
-                },
-            )
-
-            return {"messages": [response]}
-
-        llm_with_tools = self.model.bind_tools(self.bindtools)
-        graph_builder = StateGraph(State)
-
-        tool_node = ToolNode(tools=self.bindtools)
-        graph_builder.add_node("tools", tool_node)
-        graph_builder.add_edge(START, "chatbot")
-        graph_builder.add_node("chatbot", chatbot)
-
-        graph_builder.add_conditional_edges("chatbot", tools_condition)
-        graph_builder.add_edge("tools", "chatbot")
-        graph_builder.set_entry_point("chatbot")
-        graph = graph_builder.compile().with_config({"run_name": "agent"})
-
+    async def graph_builder(self):
+        mcp_client = self.get_mcp()
+        tools = await mcp_client.get_tools()
+        graph = create_agent(
+            model=self.model,
+            tools=tools,
+        )
         return graph
+
+    async def get_graph(self):
+        if self.graph is None:
+            self.graph = await self.graph_builder()
+        return self.graph
 
     def get_history(self, user_id, session_id, order="DESC", offset=0, limit=20):
         return self.history_store.list(
@@ -82,37 +62,45 @@ class Agent(object):
             limit=limit,
         )
 
-    def generate(self, input, session_id, user_id, extra_callbacks=[]):
-
+    async def generate(self, input, session_id, user_id, extra_callbacks=[]):
         history_message_user = self.history_store.get_history_for_messages(
             user_id=user_id,
             session_id=session_id,
-            size=settings.mongodb.history_size
+            size=settings.mongodb.history_size,
         )
 
-        answer = self.graph.invoke(
-            {
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": self.prompt["agent"]["prompt"].format(current_date=get_date_and_time()),
-                    },
-                ] 
-                + history_message_user
-                + [
-                    {
-                        "role": "user",
-                        "content": input,
-                    },
-                ]
-            },
-            {
-                "callbacks": [CallbackHandler()] 
-                + extra_callbacks,
-            },
-        )["messages"][-1].content
+        graph = await self.get_graph() 
 
-        answer = re.sub(r"<think>.*?</think>", "", answer.strip(), flags=re.DOTALL)
-        self.history_store.save(user_id=user_id, session_id=session_id, input_text=input, answer=answer)
+        result = await graph.ainvoke(
+            {
+                "messages": (
+                    [
+                        {
+                            "role": "system",
+                            "content": self.prompt["agent"]["prompt"].format(
+                                current_date=get_date_and_time()
+                            ),
+                        }
+                    ]
+                    + history_message_user
+                    + [{"role": "user", "content": input}]
+                )
+            },
+            {"callbacks": [CallbackHandler()] + extra_callbacks},
+        )
 
-        return answer
+        if isinstance(result, dict):
+            if "messages" in result and result["messages"]:
+                content = result["messages"][-1].content
+            elif "output" in result:
+                content = result["output"]
+            else:
+                content = str(result)
+        elif hasattr(result, "content"):
+            content = result.content
+        else:
+            content = str(result)
+
+        answer_text = re.sub(r"<think>.*?</think>", "", content.strip(), flags=re.DOTALL)
+        self.history_store.save(user_id=user_id, session_id=session_id, input_text=input, answer=answer_text)
+        return answer_text
