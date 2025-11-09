@@ -6,6 +6,8 @@ from orion.tools.knowledge import Knowledge
 from orion.agent.history import HistoryStore
 
 from langchain.tools import StructuredTool
+from langchain_mcp_adapters.client import MultiServerMCPClient  
+from langchain_mcp_adapters.tools import load_mcp_tools
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
@@ -25,25 +27,27 @@ class Agent(object):
         )
 
         self.knowledge = Knowledge(prompt=self.prompt)
-        self.bindtools = self.get_tools()
 
         self.graph = self.graph_builder()
         self.history_store = HistoryStore()
 
-    def get_tools(self):
-        args_schema = get_args_schema(self.prompt)
-        bindtools = [
-            StructuredTool.from_function(
-                func=self.knowledge.query,
-                args_schema=args_schema["knowledge"],
-                name=self.prompt["knowledge"]["config"]["name"],
-                description=self.prompt["knowledge"]["description"]
-            ),
-        ]
+    async def get_tools(self):
+        client = MultiServerMCPClient(  
+            {
+                "knowledge": {
+                    "transport": "streamable_http",  # HTTP-based remote server
+                    # Ensure you start your weather server on port 8000
+                    "url": "http://localhost:8181/mcp",
+                }
+            }
+        )
 
-        return bindtools
+        async with client.session("knowledge") as session:
+            tools = await load_mcp_tools(session)
 
-    def graph_builder(self):
+        return tools
+
+    async def graph_builder(self):
         def chatbot(state: State):
             messages = state["messages"]
             extra_callbacks = state.get("extra_callbacks", [])
@@ -58,10 +62,11 @@ class Agent(object):
 
             return {"messages": [response]}
 
-        llm_with_tools = self.model.bind_tools(self.bindtools)
+        tools = await self.get_tools()
+        llm_with_tools = self.model.bind_tools(tools)
         graph_builder = StateGraph(State)
 
-        tool_node = ToolNode(tools=self.bindtools)
+        tool_node = ToolNode(tools=tools)
         graph_builder.add_node("tools", tool_node)
         graph_builder.add_edge(START, "chatbot")
         graph_builder.add_node("chatbot", chatbot)
@@ -82,7 +87,7 @@ class Agent(object):
             limit=limit,
         )
 
-    def generate(self, input, session_id, user_id, extra_callbacks=[]):
+    async def generate(self, input, session_id, user_id, extra_callbacks=[]):
 
         history_message_user = self.history_store.get_history_for_messages(
             user_id=user_id,
@@ -90,7 +95,7 @@ class Agent(object):
             size=settings.mongodb.history_size
         )
 
-        answer = self.graph.invoke(
+        answer = self.graph.ainvoke(
             {
                 "messages": [
                     {
