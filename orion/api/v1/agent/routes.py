@@ -44,8 +44,8 @@ async def generate_response(req: Request, payload: GenerateRequest):
     start = time.perf_counter()
 
     try:
-        answer = await asyncio.to_thread(
-            _agent.generate,
+        # JANGAN pakai asyncio.to_thread untuk fungsi async
+        answer = await _agent.generate(
             input=payload.input,
             session_id=payload.session_id,
             user_id=payload.user_id,
@@ -62,7 +62,10 @@ async def generate_response(req: Request, payload: GenerateRequest):
     except Exception as e:
         latency_ms = int((time.perf_counter() - start) * 1000)
         logger.error("Agent failed", extra={"request_id": request_id})
-        raise HTTPException(status_code=500, detail={"message": "Agent failed", "error": str(e), "request_id": request_id})
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Agent failed", "error": str(e), "request_id": request_id},
+        )
 
 
 @router.get("/history", response_model=HistoryResponse)

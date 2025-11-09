@@ -29,7 +29,7 @@ class Agent(object):
 
         self.knowledge = Knowledge(prompt=self.prompt)
 
-        self.graph = self.graph_builder()
+        self.graph = None
         self.history_store = HistoryStore()
 
     def get_mcp(self):
@@ -54,6 +54,11 @@ class Agent(object):
         )
         return graph
 
+    async def get_graph(self):
+        if self.graph is None:
+            self.graph = await self.graph_builder()
+        return self.graph
+
     def get_history(self, user_id, session_id, order="DESC", offset=0, limit=20):
         return self.history_store.list(
             user_id=user_id,
@@ -67,32 +72,43 @@ class Agent(object):
         history_message_user = self.history_store.get_history_for_messages(
             user_id=user_id,
             session_id=session_id,
-            size=settings.mongodb.history_size
+            size=settings.mongodb.history_size,
         )
 
-        answer = await self.graph.ainvoke(
-            {
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": self.prompt["agent"]["prompt"].format(current_date=get_date_and_time()),
-                    },
-                ] 
-                + history_message_user
-                + [
-                    {
-                        "role": "user",
-                        "content": input,
-                    },
-                ]
-            },
-            {
-                "callbacks": [CallbackHandler()] 
-                + extra_callbacks,
-            },
-        )["messages"][-1].content
+        graph = await self.get_graph()  # pastikan ini bukan coroutine yang belum di-await
 
-        answer = re.sub(r"<think>.*?</think>", "", answer.strip(), flags=re.DOTALL)
-        self.history_store.save(user_id=user_id, session_id=session_id, input_text=input, answer=answer)
+        # 1) TUNGGU hasil ainvoke dulu
+        result = await graph.ainvoke(
+            {
+                "messages": (
+                    [
+                        {
+                            "role": "system",
+                            "content": self.prompt["agent"]["prompt"].format(
+                                current_date=get_date_and_time()
+                            ),
+                        }
+                    ]
+                    + history_message_user
+                    + [{"role": "user", "content": input}]
+                )
+            },
+            {"callbacks": [CallbackHandler()] + extra_callbacks},
+        )
 
-        return answer
+        # 2) Baru ekstrak konten (tanpa indexing sebelum await)
+        if isinstance(result, dict):
+            if "messages" in result and result["messages"]:
+                content = result["messages"][-1].content
+            elif "output" in result:
+                content = result["output"]
+            else:
+                content = str(result)
+        elif hasattr(result, "content"):
+            content = result.content
+        else:
+            content = str(result)
+
+        answer_text = re.sub(r"<think>.*?</think>", "", content.strip(), flags=re.DOTALL)
+        self.history_store.save(user_id=user_id, session_id=session_id, input_text=input, answer=answer_text)
+        return answer_text
