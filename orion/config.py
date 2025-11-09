@@ -14,6 +14,10 @@ class EmbeddingConfig(BaseModel):
     model: str = os.getenv("HF_MODEL", "BAAI/bge-m3")
     timeout_s: int = int(os.getenv("EMBEDDING_TIMEOUT_S", "300"))
 
+class MCPConfig(BaseModel):
+    mcp_transport: str = os.getenv("MCP_TRANSPORT", "streamable_http")
+    mcp_url: str = os.getenv("MCP_URL", "http://localhost:8181/mcp")
+
 class MongodbConfig(BaseModel):
     uri: str = os.getenv("MONGODB_URI", "")
     database: str = os.getenv("MONGODB_DATABASE", "orion")
@@ -52,5 +56,6 @@ class Settings(BaseModel):
     embedding: EmbeddingConfig = EmbeddingConfig()
     qdrant: QdrantConfig = QdrantConfig()
     mongodb: MongodbConfig = MongodbConfig()
+    mcp: MCPConfig = MCPConfig()
 
 settings = Settings()
