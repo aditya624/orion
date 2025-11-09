@@ -1,6 +1,6 @@
 [project]
 name = "orion"
-version = "0.1.18"
+version = "0.1.19"
 description = ""
 authors = [
     {name = "aditya624",email = "adityaadit677@gmail.com"}
