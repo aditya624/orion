@@ -80,6 +80,8 @@ LANGFUSE_SECRET_KEY=<langfuse-secret-key>
 LANGFUSE_PUBLIC_KEY=<langfuse-public-key>
 LANGFUSE_HOST="https://cloud.langfuse.com"
 TOKEN=<api-token>
+MCP_KNOWLEDGE_URL=<mcp-service-url>
+MCP_KNOWLEDGE_TRANSPORT="streamable_http"
 ```
 
 ### 3. Run the API
