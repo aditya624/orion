@@ -88,6 +88,10 @@ uvicorn orion.main:app --reload --port 8000
 ```
 Open http://localhost:8000/docs to explore the interactive Swagger UI.
 
+> ℹ️ **Knowledge Source via MCP**
+>
+> Orion retrieves its knowledge from a Qdrant vector store that is exposed through the [Moon MCP project](https://github.com/aditya624/moon). To run Orion locally, make sure you clone, install, and run the MCP service so the agent can fetch documents from Qdrant.
+
 ### 4. (Optional) Docker Run
 ```bash
 docker pull aditya624/orion:latest
