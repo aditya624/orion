@@ -13,9 +13,6 @@ from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
 from langchain.agents import create_agent
-# from langgraph.graph import StateGraph, START
-# from langgraph.prebuilt import ToolNode, tools_condition
-
 
 class Agent(object):
     def __init__(self):
@@ -36,9 +33,8 @@ class Agent(object):
         client = MultiServerMCPClient(  
             {
                 "knowledge": {
-                    "transport": "streamable_http",  # HTTP-based remote server
-                    # Ensure you start your weather server on port 8000
-                    "url": "http://localhost:8181/mcp",
+                    "transport": settings.mcp.mcp_knowledge_transport, 
+                    "url": settings.mcp.mcp_knowledge_url,
                 }
             }
         )
@@ -75,9 +71,8 @@ class Agent(object):
             size=settings.mongodb.history_size,
         )
 
-        graph = await self.get_graph()  # pastikan ini bukan coroutine yang belum di-await
+        graph = await self.get_graph() 
 
-        # 1) TUNGGU hasil ainvoke dulu
         result = await graph.ainvoke(
             {
                 "messages": (
@@ -96,7 +91,6 @@ class Agent(object):
             {"callbacks": [CallbackHandler()] + extra_callbacks},
         )
 
-        # 2) Baru ekstrak konten (tanpa indexing sebelum await)
         if isinstance(result, dict):
             if "messages" in result and result["messages"]:
                 content = result["messages"][-1].content
